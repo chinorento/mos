@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="みどり亭 居酒屋POS注文システム" />
+  <meta name="theme-color" content="#ff7f32" />
+  <title>みどり亭</title>
+  <link rel="stylesheet" href="top_menu.css" />
+  <script>
+    // QRスキャン済みかチェック
+    if (!localStorage.getItem('seatId')) {
+      window.location.href = 'qr_entry.html';
+    }
+  </script>
+</head>
+<body>
+  <!-- メインヘッダー -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="header-left">
+        <h1 id="storeName">みどり亭 本店</h1>
+      </div>
+    </div>
+  </header>
+  
+  <main class="container" role="main">
+    <p>ログイン中...</p>
+  </main>
+  
+  <script src="shared-state.js"></script>
+  <script>
+    // リダイレクト
+    window.location.href = 'top_menu.html';
+  </script>
+</body>
+</html>

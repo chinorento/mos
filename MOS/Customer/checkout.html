@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="みどり亭 お会計" />
+  <meta name="theme-color" content="#ff7f32" />
+  <title>みどり亭｜お会計</title>
+  <link rel="stylesheet" href="checkout.css">
+</head>
+<body>
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <h1>💳 お会計</h1>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="container">
+    <!-- 座席・合計情報 -->
+    <div class="checkout-card">
+      <div class="checkout-title">ご注文内容</div>
+      
+      <div class="info-row">
+        <span class="info-label">ご利用座席</span>
+        <span class="info-value" id="seatInfo">--</span>
+      </div>
+
+      <div class="info-row">
+        <span class="info-label">ご注文品数</span>
+        <span class="info-value" id="itemCountInfo">0</span>
+      </div>
+
+      <div class="total-row">
+        <span>合計金額</span>
+        <div id="totalAmount">--</div>
+      </div>
+    </div>
+
+    <!-- カート内容 -->
+    <div class="checkout-card">
+      <div class="checkout-title">注文一覧</div>
+      <div class="cart-items" id="cartItems">
+        <div class="empty-message">カートが空です</div>
+      </div>
+    </div>
+
+    <!-- 支払い方法 -->
+    <!-- <div class="checkout-card">
+      <div class="checkout-title">お支払い方法</div>
+      <div class="payment-methods">
+        <button class="btn btn-secondary" id="cashBtn" type="button">
+          💰 現金
+        </button>
+        <button class="btn btn-secondary" id="cardBtn" type="button">
+          💳 カード
+        </button>
+        <button class="btn btn-primary" id="completeBtn" type="button">
+          お支払い完了
+        </button>
+      </div>
+    </div> -->
+
+    <!-- 戻るボタン -->
+    <div style="text-align: center; margin-bottom: 20px;">
+      <button id="backBtn" class="btn btn-secondary" type="button" style="max-width: 300px;">
+        ← トップメニューに戻る
+      </button>
+    </div>
+  </main>
+
+  <!-- 支払い処理中モーダル -->
+  <div id="processingModal" class="modal">
+    <div class="modal-content">
+      <div class="spinner"></div>
+      <div class="modal-title">支払い処理中...</div>
+      <div class="modal-message">お待ちください</div>
+    </div>
+  </div>
+
+  <!-- 支払い完了モーダル -->
+  <div id="completeModal" class="modal">
+    <div class="modal-content">
+      <div style="font-size: 40px; margin-bottom: 12px;">✓</div>
+      <div class="modal-title">お支払いありがとうございました</div>
+      <div class="modal-message">またのご来店をお待ちしております</div>
+      <button id="returnHomeBtn" class="btn btn-primary" type="button" style="margin-top: 16px;">
+        トップページに戻る
+      </button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="shared-state.js"></script>
+  <script src="api.js"></script>
+  <script src="checkout.js"></script>
+</body>
+</html>

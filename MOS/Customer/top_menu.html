@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="みどり亭 居酒屋POS注文システム - 座席管理、メニュー注文、スタッフ呼び出し"
+    />
+    <meta name="theme-color" content="#ff7f32" />
+    <title>みどり亭｜トップメニュー</title>
+    <link rel="stylesheet" href="top_menu.css" />
+  </head>
+  <body>
+    <!-- 初期化用スクリプト（QR判定してリダイレクト） -->
+    <script>
+      // QRスキャン済みかチェック（座席が設定されていない場合はQR画面へ）
+      if (!localStorage.getItem("seatId")) {
+        window.location.href = "qr_entry.html";
+      }
+    </script>
+    <!-- メインヘッダー：店舗情報・座席・時刻表示 -->
+    <header class="app-header" role="banner">
+      <div class="header-inner">
+        <div class="header-left">
+          <h1 id="storeName">みどり亭 本店</h1>
+          <div class="status" role="status" aria-live="polite">
+            <span id="seatLabel" aria-label="現在の座席">席：未設定</span>
+            <span id="loLabel" aria-label="ラストオーダーまでの時間"
+              >ラストオーダーまで：計算中...</span
+            >
+          </div>
+        </div>
+        <div class="header-right">
+          <time
+            id="currentTime"
+            class="current-time"
+            aria-live="polite"
+            role="timer"
+            aria-label="現在時刻"
+          >
+            --:--:--
+          </time>
+        </div>
+      </div>
+    </header>
+
+    <!-- メインナビゲーション -->
+    <main class="container" role="main">
+      <nav class="grid" role="navigation" aria-label="メインメニュー">
+        <a class="card" href="menu_list.html" aria-describedby="menu-desc">
+          <div class="card__icon" aria-hidden="true"></div>
+          <h2 class="card__title">メニュー一覧</h2>
+          <p class="card__desc" id="menu-desc">
+            取り皿・おしぼりなどもこちらから
+          </p>
+        </a>
+
+        <a
+          class="card"
+          href="order_history.html"
+          aria-describedby="history-desc"
+        >
+          <div class="card__icon" aria-hidden="true">📋</div>
+          <h2 class="card__title">注文履歴</h2>
+          <p class="card__desc" id="history-desc">
+            ご注文の履歴・配膳状況を確認
+          </p>
+        </a>
+
+
+      <button class="card" id="btnCall" type="button" 
+        aria-describedby="call-desc">
+        <div class="card__icon" aria-hidden="true">🔔</div>
+        <h2 class="card__title">スタッフ呼び出し</h2>
+        <p class="card__desc" id="call-desc">
+        スタッフを呼び出します
+        </p>
+      </button>
+
+        <a class="card" href="checkout.html">
+          <div class="card__icon" aria-hidden="true">💳</div>
+          <h2 class="card__title">お会計</h2>
+          <p class="card__desc" id="checkout-desc">
+            お支払い手続きへ進みます
+          </p>
+        </a>
+
+      </nav>
+    </main>
+
+    <!-- トースト通知 -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <!-- 呼び出し完了モーダル -->
+    <div id="callResultModal" class="modal" hidden aria-hidden="true">
+      <div class="modal__backdrop"></div>
+      <div
+        class="modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="callResultTitle"
+      >
+        <h3 id="callResultTitle">呼び出し完了</h3>
+        <p id="callResultMessage">スタッフを呼び出しました</p>
+        <div class="modal__actions">
+          <button id="closeCallResult" class="primary" type="button">
+            閉じる
+          </button>
+          <button id="retryCall" class="secondary" type="button" hidden>
+            再試行
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 呼び出し確認モーダル -->
+    <div id="callModal" class="modal" hidden aria-hidden="true">
+      <div class="modal__backdrop"></div>
+      <div
+        class="modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="callModalTitle"
+      >
+        <h3 id="callModalTitle">スタッフ呼び出しの確認</h3>
+        <p>呼び出したらスタッフに通知されます。呼び出しますか？</p>
+        <div class="modal__actions">
+          <button id="confirmCall" class="primary" type="button">
+            呼び出す
+          </button>
+          <button id="cancelCall" class="secondary" type="button">
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 座席選択モーダル -->
+    <div id="seatModal" class="modal" hidden aria-hidden="true">
+      <div class="modal__backdrop"></div>
+      <div
+        class="modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="seatModalTitle"
+      >
+        <h3 id="seatModalTitle">座席を選択</h3>
+        <p>ご利用になる座席を選択してください</p>
+        <label for="seatSelect" class="form-label">座席選択</label>
+        <select
+          id="seatSelect"
+          class="form-select"
+          aria-required="true"
+        ></select>
+        <div class="modal__actions">
+          <button id="confirmSeat" class="primary" type="button">設定</button>
+          <button id="cancelSeat" class="secondary" type="button">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 会計準備中モーダル -->
+    <div id="paymentPreparingModal" class="modal" hidden aria-hidden="true">
+      <div class="modal__backdrop"></div>
+      <div
+        class="modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="paymentTitle"
+      >
+        <h3 id="paymentTitle">会計処理中</h3>
+        <p>お会計を準備しています...</p>
+        <div style="text-align: center; margin: 20px 0">
+          <div style="font-size: 48px; animation: pulse 2s infinite">💳</div>
+          <div style="margin-top: 12px; font-size: 14px; color: #666">
+            処理中です。しばらくお待ちください。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="app-footer" role="contentinfo">
+      <small>&copy; 2026 みどり亭 POS システム</small>
+    </footer>
+
+    <style>
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 0.8;
+        }
+      }
+    </style>
+
+    <script src="shared-state.js"></script>
+    <script src="api.js"></script>
+    <script src="STAFF_main.js" defer></script>
+  </body>
+</html>
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>呼び出しシステム</title>
+
+    <style>
+      /* 通知アイテムのスタイル */
+      .call-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      /* 対応完了ボタンのスタイル */
+      .resolve-btn {
+        padding: 6px 12px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .resolve-btn:hover {
+        background-color: #45a049;
+      }
+      .call-item {
+        display: flex;
+        justify-content: space-between; /* ...省略... */
+      }
+      /* モーダルを一時的に表示するための簡易CSS（テスト用） */
+      .modal[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <button id="openModal" style="margin-bottom: 20px">
+      呼び出し画面を開く
+    </button> -->
+
+    <div id="callModal" class="modal" hidden aria-hidden="true"></div>
+
+    <div id="callList" class="call-notification__list"></div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        // 要素の取得
+        const callModal = document.getElementById("callModal");
+        const confirmCallBtn = document.getElementById("confirmCall");
+        const cancelCallBtn = document.getElementById("cancelCall");
+        const callList = document.getElementById("callList");
+        const emptyState = document.getElementById("emptyState");
+
+        let callCounter = 1; // 呼び出し番号のカウンター（デモ用）
+
+        // リストが空かどうかを判定する関数
+        function checkEmptyState() {
+          // emptyState以外の通知アイテムがリスト内に存在するかチェック
+          const hasNotifications =
+            callList.querySelectorAll(".call-item").length > 0;
+          if (hasNotifications) {
+            emptyState.hidden = true;
+          } else {
+            emptyState.hidden = false;
+          }
+        }
+
+        // 1. 呼び出すボタンの処理
+        confirmCallBtn.addEventListener("click", () => {
+          // モーダルを閉じる
+          callModal.hidden = true;
+          callModal.setAttribute("aria-hidden", "true");
+
+          // 新しい通知要素（DOM）を作成
+          const callItem = document.createElement("div");
+          callItem.className = "call-item"; // CSS装飾用のクラス
+
+          // 現在時刻の取得
+          const now = new Date();
+          const timeText = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+          // 通知内容のHTMLをセット
+          callItem.innerHTML = `
+      <span>🔔 呼び出し #${callCounter} (時刻: ${timeText})</span>
+      <button class="resolve-btn">対応完了</button>
+    `;
+
+          // 「対応完了」ボタンを押したときの処理（通知を削除する）
+          const resolveBtn = callItem.querySelector(".resolve-btn");
+          resolveBtn.addEventListener("click", () => {
+            callItem.remove(); // 要素を削除
+            checkEmptyState(); // 空になったか再チェック
+          });
+
+          // リストに通知を追加
+          callList.appendChild(callItem);
+
+          // カウンターを増やし、空状態を更新
+          callCounter++;
+          checkEmptyState();
+        });
+
+        // 2. キャンセルボタン（閉じる）の処理
+        cancelCallBtn.addEventListener("click", () => {
+          callModal.hidden = true;
+          callModal.setAttribute("aria-hidden", "true");
+        });
+
+        // 初期ロード時の空状態チェック
+        checkEmptyState();
+      });
+      document.addEventListener("DOMContentLoaded", () => {
+        /* ...省略... */
+      });
+
+      // ※テスト用にモーダルを開くためのコード（必要に応じて追加）
+      document.getElementById("openModal")?.addEventListener("click", () => {
+        document.getElementById("callModal").hidden = false;
+      });
+    </script>
+  </body>
+</html>

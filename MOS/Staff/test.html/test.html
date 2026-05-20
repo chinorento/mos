@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>みどり亭｜呼び出し連携デモ</title>
+  <style>
+    /* ===== 共通 & 顧客側スタイル ===== */
+    body {
+      font-family: sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    .section {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+    button.card {
+      padding: 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #ff7f32;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      width: 200px;
+    }
+    button.card:hover {
+      background-color: #e86c1f;
+    }
+    
+    /* モーダルスタイル */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal[hidden] {
+      display: none;
+    }
+    .modal__backdrop {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+    }
+    .modal__dialog {
+      position: relative;
+      background: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      z-index: 1001;
+    }
+    .modal__actions {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal__actions button {
+      padding: 8px 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .modal__actions .primary {
+      background-color: #ff7f32;
+      color: #fff;
+    }
+    .modal__actions .secondary {
+      background-color: #ddd;
+      color: #333;
+    }
+
+    /* ===== スタッフ呼び出し通知コンポーネント スタイル ===== */
+    :root {
+      --color-primary: #ff7f32;
+      --color-primary-dark: #e86c1f;
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-alert: #ef4444;
+      --color-text: #1f2937;
+      --color-text-secondary: #6b7280;
+      --color-border: #e5e7eb;
+      --color-background: #f9fafb;
+      --color-background-light: #fff8f0;
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+      --spacing-xl: 24px;
+      --font-size-sm: 12px;
+      --font-size-base: 14px;
+      --font-size-lg: 16px;
+      --font-size-2xl: 24px;
+      --border-radius-sm: 4px;
+      --border-radius-md: 8px;
+      --transition-fast: 150ms ease-in-out;
+      --transition-normal: 250ms ease-in-out;
+    }
+    .call-notification-container {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      padding: var(--spacing-md);
+      background: #fff;
+      border-radius: var(--border-radius-md);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .call-notification__header {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      border-bottom: 2px solid var(--color-border);
+      padding-bottom: var(--spacing-md);
+    }
+    .call-notification__title { margin: 0; font-size: var(--font-size-lg); font-weight: 700; color: var(--color-text); }
+    .call-notification__stats { display: flex; gap: var(--spacing-md); flex-wrap: wrap; }
+    .stat-item { display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-size-sm); }
+    .stat-label { color: var(--color-text-secondary); font-weight: 600; }
+    .stat-value { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; background: var(--color-background); border-radius: var(--border-radius-sm); font-weight: 700; color: var(--color-text); }
+    
+    .call-notification__filters { display: flex; gap: var(--spacing-sm); border-bottom: 1px solid var(--color-border); overflow-x: auto; }
+    .filter-tab { display: inline-flex; align-items: center; gap: var(--spacing-xs); padding: var(--spacing-sm) var(--spacing-md); background: transparent; border: none; border-bottom: 3px solid transparent; color: var(--color-text-secondary); font-size: var(--font-size-base); font-weight: 600; cursor: pointer; }
+    .filter-tab--active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .filter-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; background: var(--color-background); border-radius: 10px; font-size: var(--font-size-sm); font-weight: 700; }
+    
+    .call-notification__list { display: flex; flex-direction: column; gap: var(--spacing-md); min-height: 100px; }
+    .call-items-list { display: flex; flex-direction: column; gap: var(--spacing-md); }
+    .call-notification__empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--spacing-xl) var(--spacing-md); background: var(--color-background-light); border-radius: var(--border-radius-md); text-align: center; color: var(--color-text-secondary); }
+    
+    .call-item { display: grid; grid-template-columns: auto 1fr auto; gap: var(--spacing-md); align-items: center; padding: var(--spacing-md); background: #fff; border: 2px solid var(--color-border); border-radius: var(--border-radius-md); transition: all var(--transition-normal); }
+    .call-item[data-status="pending"] { border-color: var(--color-alert); background: rgba(239, 68, 68, 0.02); }
+    .call-item[data-status="in-progress"] { border-color: var(--color-warning); background: rgba(245, 158, 11, 0.02); }
+    .call-item[data-status="completed"] { border-color: var(--color-success); background: rgba(16, 185, 129, 0.02); opacity: 0.7; }
+    
+    .call-item__priority-indicator { display: flex; align-items: center; justify-content: center; min-width: 36px; }
+    .priority-badge { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 700; font-size: var(--font-size-lg); }
+    .call-item[data-status="pending"] .priority-badge { background: var(--color-alert); color: #fff; }
+    .call-item[data-status="pending"] .priority-badge::before { content: "!"; }
+    .call-item[data-status="in-progress"] .priority-badge { background: var(--color-warning); color: #fff; }
+    .call-item[data-status="in-progress"] .priority-badge::before { content: "⏳"; }
+    .call-item[data-status="completed"] .priority-badge { background: var(--color-success); color: #fff; }
+    .call-item[data-status="completed"] .priority-badge::before { content: "✓"; }
+    
+    .call-item__main { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+    .call-item__seat-info { display: flex; align-items: center; gap: var(--spacing-md); }
+    .call-item__seat-id { font-size: var(--font-size-2xl); font-weight: 700; color: var(--color-text); }
+    .call-item__status-badge { display: inline-flex; align-items: center; padding: var(--spacing-xs) var(--spacing-sm); border-radius: var(--border-radius-sm); font-size: var(--font-size-sm); font-weight: 600; }
+    .call-item[data-status="pending"] .call-item__status-badge { background: rgba(239, 68, 68, 0.2); color: var(--color-alert); }
+    .call-item[data-status="in-progress"] .call-item__status-badge { background: rgba(245, 158, 11, 0.2); color: var(--color-warning); }
+    .call-item[data-status="completed"] .call-item__status-badge { background: rgba(16, 185, 129, 0.2); color: var(--color-success); }
+    
+    .call-item__timestamp { display: flex; align-items: center; gap: var(--spacing-sm); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+    .call-item__reason { font-size: var(--font-size-sm); padding: var(--spacing-sm); background: var(--color-background-light); border-left: 3px solid var(--color-primary); border-radius: var(--border-radius-sm); }
+    
+    .call-item__actions { display: flex; gap: var(--spacing-sm); }
+    .call-item__action-btn { padding: var(--spacing-sm) var(--spacing-md); border: none; border-radius: var(--border-radius-md); font-weight: 600; cursor: pointer; }
+    .call-item__acknowledge-btn { background: var(--color-alert); color: #fff; }
+    .call-item__complete-btn { background: var(--color-success); color: #fff; }
+    .call-item__dismiss-btn { background: var(--color-text-secondary); color: #fff; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= お客様画面モック ================= -->
+  <div class="section">
+    <h2>お客様画面</h2>
+    <p>卓上のタブレット等のイメージです。</p>
+    <button class="card" id="btnCall" type="button">
+      <div style="font-size: 24px; margin-bottom: 8px;">🔔</div>
+      <div>スタッフ呼び出し</div>
+    </button>
+  </div>
+
+  <!-- 呼び出し確認モーダル -->
+  <div id="callModal" class="modal" hidden aria-hidden="true">
+    <div class="modal__backdrop" id="modalBackdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true">
+      <h3 id="callModalTitle">スタッフ呼び出しの確認</h3>
+      <p>呼び出したらスタッフに通知されます。呼び出しますか？</p>
+      <div class="modal__actions">
+        <button id="cancelCall" class="secondary" type="button">閉じる</button>
+        <button id="confirmCall" class="primary" type="button">呼び出す</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ================= スタッフ画面 ================= -->
+  <div class="section">
+    <h2>スタッフ画面（ハンディ・PC）</h2>
+    
+    <div id="callNotificationContainer" class="call-notification-container">
+      <div class="call-notification__header">
+        <h2 class="call-notification__title">スタッフ呼び出し通知</h2>
+        <div class="call-notification__stats">
+          <span class="stat-item"><span class="stat-label">未対応:</span><span class="stat-value" id="pendingCount">0</span></span>
+          <span class="stat-item"><span class="stat-label">対応中:</span><span class="stat-value" id="inProgressCount">0</span></span>
+          <span class="stat-item"><span class="stat-label">完了:</span><span class="stat-value" id="completedCount">0</span></span>
+        </div>
+      </div>
+
+      <div class="call-notification__filters">
+        <button class="filter-tab filter-tab--active" data-filter="all">すべて <span class="filter-count" id="countAll">0</span></button>
+        <button class="filter-tab" data-filter="pending">未対応 <span class="filter-count" id="countPending">0</span></button>
+        <button class="filter-tab" data-filter="in-progress">対応中 <span class="filter-count" id="countInProgress">0</span></button>
+      </div>
+
+      <div id="callList" class="call-notification__list">
+        <div id="emptyState" class="call-notification__empty" hidden>
+          <p>呼び出しはありません</p>
+        </div>
+        <div id="callItemsContainer" class="call-items-list"></div>
+      </div>
+
+      <!-- テンプレート：呼び出しアイテム -->
+      <template id="callItemTemplate">
+        <article class="call-item" data-call-id="" data-status="">
+          <div class="call-item__priority-indicator"><span class="priority-badge"></span></div>
+          <div class="call-item__main">
+            <div class="call-item__seat-info">
+              <span class="call-item__seat-id"></span>
+              <span class="call-item__status-badge"></span>
+            </div>
+            <div class="call-item__timestamp">
+              <time class="call-item__time-absolute"></time>
+              <span class="call-item__time-elapsed"></span>
+            </div>
+            <div class="call-item__reason"></div>
+          </div>
+          <div class="call-item__actions">
+            <button class="call-item__action-btn call-item__acknowledge-btn">対応開始</button>
+            <button class="call-item__action-btn call-item__complete-btn" hidden>完了</button>
+            <button class="call-item__action-btn call-item__dismiss-btn" hidden>削除</button>
+          </div>
+        </article>
+      </template>
+    </div>
+  </div>
+
+
+  <!-- ================= スクリプト ================= -->
+  <script>
+    // --------------------------------------------------
+    // スタッフ呼び出し通知コンポーネントのロジック
+    // --------------------------------------------------
+    const StaffCallNotificationComponent = (() => {
+      const STATUS = { PENDING: 'pending', IN_PROGRESS: 'in-progress', COMPLETED: 'completed' };
+      let state = { calls: [], currentFilter: 'all' };
+      const DOM = {};
+
+      function formatTime(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function getStatusLabel(status) {
+        return { [STATUS.PENDING]: '未対応', [STATUS.IN_PROGRESS]: '対応中', [STATUS.COMPLETED]: '完了' }[status] || 'unknown';
+      }
+
+      function cacheDOM() {
+        DOM.itemsContainer = document.getElementById('callItemsContainer');
+        DOM.emptyState = document.getElementById('emptyState');
+        DOM.pendingCount = document.getElementById('pendingCount');
+        DOM.inProgressCount = document.getElementById('inProgressCount');
+        DOM.completedCount = document.getElementById('completedCount');
+        DOM.filterTabs = document.querySelectorAll('.filter-tab');
+        DOM.template = document.getElementById('callItemTemplate');
+        DOM.countAll = document.getElementById('countAll');
+        DOM.countPending = document.getElementById('countPending');
+        DOM.countInProgress = document.getElementById('countInProgress');
+      }
+
+      function renderCallItem(call) {
+        const clone = DOM.template.content.cloneNode(true);
+        const article = clone.querySelector('article');
+        article.dataset.callId = call.id;
+        article.dataset.status = call.status;
+
+        clone.querySelector('.call-item__seat-id').textContent = call.seatId;
+        clone.querySelector('.call-item__status-badge').textContent = getStatusLabel(call.status);
+        clone.querySelector('.call-item__time-absolute').textContent = formatTime(call.createdAt);
+        clone.querySelector('.call-item__reason').textContent = call.reason;
+
+        const ackBtn = clone.querySelector('.call-item__acknowledge-btn');
+        const compBtn = clone.querySelector('.call-item__complete-btn');
+        const disBtn = clone.querySelector('.call-item__dismiss-btn');
+
+        if (call.status === STATUS.PENDING) {
+          ackBtn.removeAttribute('hidden');
+          compBtn.setAttribute('hidden', '');
+          disBtn.setAttribute('hidden', '');
+        } else if (call.status === STATUS.IN_PROGRESS) {
+          ackBtn.setAttribute('hidden', '');
+          compBtn.removeAttribute('hidden');
+          disBtn.setAttribute('hidden', '');
+        } else {
+          ackBtn.setAttribute('hidden', '');
+          compBtn.setAttribute('hidden', '');
+          disBtn.removeAttribute('hidden');
+        }
+
+        ackBtn.addEventListener('click', () => updateStatus(call.id, STATUS.IN_PROGRESS));
+        compBtn.addEventListener('click', () => updateStatus(call.id, STATUS.COMPLETED));
+        disBtn.addEventListener('click', () => removeCall(call.id));
+
+        return clone;
+      }
+
+      function render() {
+        const pending = state.calls.filter(c => c.status === STATUS.PENDING).length;
+        const inProgress = state.calls.filter(c => c.status === STATUS.IN_PROGRESS).length;
+        const completed = state.calls.filter(c => c.status === STATUS.COMPLETED).length;
+
+        DOM.pendingCount.textContent = pending;
+        DOM.inProgressCount.textContent = inProgress;
+        DOM.completedCount.textContent = completed;
+        DOM.countAll.textContent = state.calls.length;
+        DOM.countPending.textContent = pending;
+        DOM.countInProgress.textContent = inProgress;
+
+        const filtered = state.calls.filter(call => state.currentFilter === 'all' || call.status === state.currentFilter);
+
+        if (filtered.length === 0) {
+          DOM.itemsContainer.innerHTML = '';
+          DOM.emptyState.removeAttribute('hidden');
+          return;
+        }
+
+        DOM.emptyState.setAttribute('hidden', '');
+        DOM.itemsContainer.innerHTML = '';
+        filtered.forEach(call => DOM.itemsContainer.appendChild(renderCallItem(call)));
+      }
+
+      function updateStatus(callId, newStatus) {
+        const call = state.calls.find(c => c.id === callId);
+        if (call) { call.status = newStatus; render(); }
+      }
+
+      function removeCall(callId) {
+        state.calls = state.calls.filter(c => c.id !== callId);
+        render();
+      }
+
+      function setFilter(filter) {
+        state.currentFilter = filter;
+        DOM.filterTabs.forEach(tab => {
+          if (tab.dataset.filter === filter) tab.classList.add('filter-tab--active');
+          else tab.classList.remove('filter-tab--active');
+        });
+        render();
+      }
+
+      return {
+        init: () => {
+          cacheDOM();
+          DOM.filterTabs.forEach(tab => tab.addEventListener('click', () => setFilter(tab.dataset.filter)));
+          render();
+        },
+        addCall: (call) => {
+          state.calls.unshift(call);
+          render();
+        }
+      };
+    })();
+
+    // --------------------------------------------------
+    // お客様画面（モーダル）とスタッフ画面の連携処理
+    // --------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. スタッフコンポーネントの初期化
+      StaffCallNotificationComponent.init();
+
+      // 2. モーダル操作用の要素取得
+      const btnCall = document.getElementById('btnCall');
+      const callModal = document.getElementById('callModal');
+      const cancelCallBtn = document.getElementById('cancelCall');
+      const confirmCallBtn = document.getElementById('confirmCall');
+      const modalBackdrop = document.getElementById('modalBackdrop');
+
+      let callCounter = 1; // 呼び出しごとの連番を生成するためのカウンター
+
+      // 呼び出しボタンを押したらモーダルを開く
+      btnCall.addEventListener('click', () => {
+        callModal.hidden = false;
+        callModal.setAttribute('aria-hidden', 'false');
+      });
+
+      // モーダルを閉じる処理
+      const closeModal = () => {
+        callModal.hidden = true;
+        callModal.setAttribute('aria-hidden', 'true');
+      };
+      cancelCallBtn.addEventListener('click', closeModal);
+      modalBackdrop.addEventListener('click', closeModal);
+
+      // モーダルで「呼び出す」を押したときの処理
+      confirmCallBtn.addEventListener('click', () => {
+        // モーダルを閉じる
+        closeModal();
+
+        // ダミーの呼び出しデータを作成
+        // 本番環境では seatId は localStorage などから取得します
+        const newCallData = {
+          id: 'call_' + Date.now(),
+          seatId: 'A-' + (Math.floor(Math.random() * 10) + 1), // A-1 ~ A-10 のランダムな座席
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          reason: '通常のスタッフ呼び出し (' + callCounter + '回目)'
+        };
+        
+        callCounter++;
+
+        // スタッフ画面のコンポーネントにデータを追加（連携）
+        StaffCallNotificationComponent.addCall(newCallData);
+        
+        // 簡易的な通知
+        alert('スタッフを呼び出しました。下部のスタッフ画面をご確認ください。');
+      });
+    });
+  </script>
+</body>
+</html>

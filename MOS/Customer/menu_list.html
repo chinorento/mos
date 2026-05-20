@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="みどり亭 メニュー一覧 - 料理の検索・注文・カート管理">
+  <meta name="theme-color" content="#ff7f32">
+  <title>メニュー一覧 - 居酒屋みどり亭</title>
+  <link rel="stylesheet" href="menu_list.css">
+</head>
+<body>
+  <!-- ヘッダー：店舗情報・座席・LO・現在時刻 -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="header-left">
+        <h1 id="storeName">みどり亭 ○○店</h1>
+        <div class="status" role="status" aria-live="polite">
+          <span id="seatLabel" aria-label="現在の座席">席：未設定</span>
+          <span id="loLabel" aria-label="ラストオーダーまでの時間">
+            ラストオーダーまで：計算中...
+          </span>
+        </div>
+      </div>
+      <div class="header-right">
+        <a href="top_menu.html" class="top-link" 
+           aria-label="トップメニューへ戻る">TOPへ</a>
+        <time id="currentTime" class="current-time" 
+              aria-live="polite" role="timer">--:--:--</time>
+      </div>
+    </div>
+  </header>
+  
+  <!-- 検索・フィルタ機能 -->
+  <section class="search-bar container" role="search" 
+           aria-label="メニュー検索・フィルタ">
+    <!-- 検索入力行 -->
+    <div class="search-input-row">
+      <label for="searchInput" class="visually-hidden">メニュー検索</label>
+      <input type="text" id="searchInput" 
+             placeholder="メニュー検索" 
+             aria-label="料理名で検索">
+    </div>
+    
+    <!-- カテゴリタブ -->
+    <div id="categoryTabs" class="category-tabs" role="tablist" 
+         aria-label="カテゴリ選択">
+      <!-- JavaScript で動的生成 -->
+    </div>
+  </section>
+  
+  <!-- メニュー表示エリア -->
+  <main id="menuContainer" class="container" 
+        role="main" aria-label="メニュー一覧">
+  </main>
+  
+  <!-- カートシステム -->
+  <aside id="miniCart" role="complementary" aria-label="注文カート">
+    <!-- 要約表示（常時） -->
+    <div id="miniCartSummary">
+      <!-- カート点数と注文ステータス -->
+      <div class="cart-summary__info">
+        <span role="status" aria-live="polite">
+          カート：<strong id="cartCount" aria-label="カート内商品数">0</strong> 点
+        </span>
+        <span class="order-status" role="status" aria-live="polite">
+          配膳済み: <span id="deliveredCount" aria-label="配膳済み商品数">0</span> 点　/　
+          未配膳: <span id="pendingCount" aria-label="未配膳商品数">0</span> 点
+        </span>
+      </div>
+      <div>
+        <button id="miniCartToggle" class="secondary" type="button"
+                aria-expanded="false" aria-controls="miniCartDetails">
+          表示
+        </button>
+      </div>
+    </div>
+
+    <!-- 詳細表示（展開時） -->
+    <div id="miniCartDetails" hidden aria-hidden="true">
+      <h3>カートの中身</h3>
+      <ul id="cartItems" role="list" aria-label="カート内商品一覧">
+      </ul>
+      <div id="cartTotal" role="status" aria-live="polite">
+        合計: ¥0
+      </div>
+      <button id="confirmOrder" class="primary" type="button">
+        注文確定  <!--DBに追加する処理-->
+      </button>
+    </div>
+  </aside>
+  
+  <!-- スクリプト読み込み -->
+  <script src="shared-state.js"></script>
+  <script src="api.js"></script>
+  <script src="menu_list.js"></script>
+
+  <!-- 商品追加モーダル -->
+  <div id="addProductModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="addProductModalTitle">
+    <div class="modal-content">
+      <button type="button" class="modal-close" aria-label="モーダルを閉じる">×</button>
+      <h2 id="addProductModalTitle">商品を追加</h2>
+      <div class="modal-body">
+        <p>選択した商品をカートに追加します。</p>
+        <div id="productModalDetails"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="modalCancelButton" class="secondary">キャンセル</button>
+        <button type="button" id="modalConfirmButton" class="primary">追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 商品追加（数量選択）モーダル ===== -->
+  <div id="itemAddModal" class="modal" hidden aria-hidden="true">
+    <div class="modal__backdrop" id="itemAddModalBackdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" style="text-align: center;">
+      <h3 id="itemAddModalName" style="margin-bottom: 8px;">商品名</h3>
+      <p id="itemAddModalPrice" style="color: #ff7f32; font-weight: bold; font-size: 18px; margin-top: 0;">¥0</p>
+      <p style="color: #666; font-size: 14px; margin: 4px 0;">最大10個まで注文できます</p>
+      
+      <!-- 個数変更コントロール -->
+      <div style="margin: 24px 0; display: flex; align-items: center; justify-content: center; gap: 20px;">
+        <button id="itemAddModalMinus" class="secondary" style="width: 56px; height: 56px; font-size: 28px; border-radius: 50%;">－</button>
+        <span id="itemAddModalQty" style="font-size: 32px; font-weight: bold; min-width: 48px;">1</span>
+        <button id="itemAddModalPlus" class="primary" style="width: 56px; height: 56px; font-size: 28px; border-radius: 50%;">＋</button>
+      </div>
+
+      <div class="modal__actions" style="justify-content: center;">
+        <button id="cancelItemAdd" class="secondary" type="button" style="width: 40%;">キャンセル</button>
+        <button id="confirmItemAdd" class="primary" type="button" style="width: 50%;">カートに入れる</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

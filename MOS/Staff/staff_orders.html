@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="スタッフ用配膳管理システム - 注文一覧・配膳状況確認" />
+  <meta name="theme-color" content="#ff7f32" />
+  <title>注文管理 - スタッフシステム</title>
+  <link rel="stylesheet" href="staff_orders.css" />
+</head>
+<body>
+  <!-- ===== ヘッダー ===== -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="header-left">
+        <h1 id="storeName">みどり亭 本店</h1>
+        <div class="status" role="status" aria-live="polite">
+          <span id="orderSummary" aria-label="注文サマリー">注文: 0件</span>
+          <span id="syncStatus" class="sync-status" aria-label="同期状況">
+            <span class="sync-indicator"></span>
+            最終更新: --:--
+          </span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="refreshBtn" class="header-btn" type="button" 
+                aria-label="注文一覧を更新する"
+                title="今すぐ更新（Ctrl+R）">
+          🔄 更新
+        </button>
+        <a href="#" class="header-btn" aria-label="ダッシュボードへ戻る">
+          ダッシュボード
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== ツールバー ===== -->
+  <section class="toolbar" role="region" aria-label="フィルタ・ソート機能">
+    <div class="toolbar-inner">
+      <!-- ステータスフィルタ -->
+      <div class="filter-group">
+        <label for="statusFilter" class="visually-hidden">配膳状況でフィルタ</label>
+        <select id="statusFilter" class="filter-select" 
+                aria-label="配膳状況をフィルタ">
+          <option value="all">すべて</option>
+          <option value="pending">未配膳のみ</option>
+          <option value="in-progress">配膳中のみ</option>
+          <option value="delivered">配膳済みのみ</option>
+        </select>
+      </div>
+
+      <!-- ソート順序 -->
+      <div class="filter-group">
+        <label for="sortOrder" class="visually-hidden">ソート順序</label>
+        <select id="sortOrder" class="filter-select"
+                aria-label="ソート順序を選択">
+          <option value="priority-desc" selected>未配膳が多い順（★推奨）</option>
+          <option value="priority-asc">未配膳が少ない順</option>
+          <option value="seat-asc">座席順（昇順）</option>
+          <option value="seat-desc">座席順（降順）</option>
+          <option value="time-newest">新着順</option>
+          <option value="time-oldest">古い順</option>
+        </select>
+      </div>
+
+      <!-- ビューモード切り替え -->
+      <div class="view-mode-group">
+        <button id="viewModeToggle" class="view-mode-btn" type="button"
+                data-mode="compact"
+                aria-label="表示モードを切り替え（コンパクト/詳細）"
+                title="スペース節約 / 詳細表示">
+          📋 コンパクト
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== メインコンテンツ ===== -->
+  <main id="ordersContainer" class="container" role="main" 
+        aria-label="座席別注文一覧">
+    <!-- ローディング表示 -->
+    <div id="loadingState" class="loading-state" hidden aria-hidden="true">
+      <div class="spinner"></div>
+      <p>注文データを取得中...</p>
+    </div>
+
+    <!-- エラー表示 -->
+    <div id="errorState" class="error-state" hidden aria-live="polite">
+      <div class="error-icon">⚠️</div>
+      <p id="errorMessage">エラーが発生しました</p>
+      <button id="retryBtn" class="btn-primary" type="button">
+        再試行
+      </button>
+    </div>
+
+    <!-- 空状態表示 -->
+    <div id="emptyState" class="empty-state" hidden aria-live="polite">
+      <div class="empty-icon">✨</div>
+      <p>注文はありません</p>
+    </div>
+
+    <!-- 座席グループのコンテナ（動的に生成） -->
+    <div id="seatGroupsContainer" class="seat-groups-list">
+      <!-- JavaScript で動的に注入 -->
+    </div>
+  </main>
+
+  <!-- ===== 批量操作パネル ===== -->
+  <div id="bulkActionsPanel" class="bulk-actions-panel" hidden aria-live="polite">
+    <div class="bulk-actions-inner">
+      <span id="selectedCount" aria-label="選択中の項目数">
+        0件 選択中
+      </span>
+      <div class="bulk-actions-buttons">
+        <button id="markDeliveredBtn" class="btn-primary" type="button"
+                aria-label="選択した商品を配膳済みにマーク">
+          ✓ 配膳済みにマーク
+        </button>
+        <button id="markPendingBtn" class="btn-secondary" type="button"
+                aria-label="選択した商品を未配膳に戻す">
+          ← 未配膳に戻す
+        </button>
+        <button id="clearSelectionBtn" class="btn-secondary" type="button"
+                aria-label="選択をクリア">
+          クリア
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== テンプレート定義 ===== -->
+  <template id="seatGroupTemplate">
+    <section class="seat-group" data-seat-id="">
+      <!-- ヘッダー内容は動的に生成 -->
+    </section>
+  </template>
+
+  <template id="orderItemTemplate">
+    <article class="order-item" data-order-id="">
+      <!-- オーダーアイテムの内容は動的に生成 -->
+    </article>
+  </template>
+
+  <template id="productItemTemplate">
+    <li class="product-item" data-product-id="">
+      <!-- 商品行は動的に生成 -->
+    </li>
+  </template>
+
+  <!-- ===== ホットキー用非表示エレメント ===== -->
+  <input type="text" id="hotkeyCatcher" class="visually-hidden" 
+         aria-label="ショートカットキー受け取り用（表示されません）" />
+
+  <!-- ===== JavaScript ===== -->
+  <script src="../shared-state.js"></script>
+  <script src="staff-state.js"></script>
+  <script src="staff-api.js"></script>
+  <script src="staff_orders.js"></script>
+</body>
+</html>

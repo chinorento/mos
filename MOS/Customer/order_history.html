@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>注文履歴 - みどり亭</title>
+  <link rel="stylesheet" href="order_history.css">
+</head>
+<body>
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="header-left">
+        <h1 id="storeName">みどり亭 ○○店</h1>
+        <div class="status" role="status" aria-live="polite">
+          <span id="seatLabel">席：未設定</span>
+          <span id="loLabel">ラストオーダーまで：計算中...</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <a href="top_menu.html" class="top-link" aria-label="トップへ">TOPへ</a>
+        <time id="currentTime" class="current-time" aria-live="polite">--:--:--</time>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" role="main">
+    <section class="controls">
+      <div class="counts">
+        配膳済み: <strong id="deliveredCount">0</strong> 点 /
+        未配膳: <strong id="pendingCount">0</strong> 点
+      </div>
+      <div class="filters" role="tablist" aria-label="注文フィルタ">
+        <button class="filter-btn active" data-filter="all" type="button">全て</button>
+        <button class="filter-btn" data-filter="pending" type="button">未配膳</button>
+        <button class="filter-btn" data-filter="delivered" type="button">配膳済み</button>
+      </div>
+    </section>
+
+    <section class="order-history">
+      <h2>注文履歴</h2>
+      <div id="ordersList" class="orders-list">読み込み中...</div>
+    </section>
+  </main>
+  
+
+  <!-- トースト（top_menu.js の showToast と互換） -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="shared-state.js"></script>
+  <script src="api.js"></script>
+  <script src="order_history.js"></script>
+</body>
+</html>

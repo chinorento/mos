@@ -1,0 +1,1101 @@
+<!-- ===== スタッフ呼び出し通知コンポーネント ===== -->
+<!--
+  使用方法:
+  1. HTMLに以下を埋め込む
+  2. JavaScript で StaffCallNotificationComponent を初期化
+  3. イベントリスナーで対応完了を処理
+
+  構造:
+  - 複数の呼び出し通知をリスト表示
+  - 各通知は未対応/対応中/完了のステータスを持つ
+  - キーボード操作で完全に制御可能
+-->
+
+<div id="callNotificationContainer" class="call-notification-container" role="region" aria-live="polite" aria-label="スタッフ呼び出し通知">
+  <!-- ヘッダー：統計情報 -->
+  <div class="call-notification__header">
+    <h2 class="call-notification__title">スタッフ呼び出し</h2>
+    <div class="call-notification__stats" role="status" aria-live="assertive">
+      <span class="stat-item">
+        <span class="stat-label">未対応:</span>
+        <span class="stat-value" id="pendingCount" aria-label="未対応の呼び出し数">0</span>
+      </span>
+      <span class="stat-item">
+        <span class="stat-label">対応中:</span>
+        <span class="stat-value" id="inProgressCount" aria-label="対応中の呼び出し数">0</span>
+      </span>
+      <span class="stat-item">
+        <span class="stat-label">完了:</span>
+        <span class="stat-value" id="completedCount" aria-label="完了した呼び出し数">0</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- フィルタータブ -->
+  <div class="call-notification__filters" role="tablist" aria-label="呼び出しステータスでフィルタ">
+    <button class="filter-tab filter-tab--active" 
+            role="tab" 
+            aria-selected="true" 
+            aria-controls="callList"
+            data-filter="all"
+            type="button">
+      すべて <span class="filter-count" id="countAll">0</span>
+    </button>
+    <button class="filter-tab" 
+            role="tab" 
+            aria-selected="false" 
+            aria-controls="callList"
+            data-filter="pending"
+            type="button">
+      未対応 <span class="filter-count" id="countPending">0</span>
+    </button>
+    <button class="filter-tab" 
+            role="tab" 
+            aria-selected="false" 
+            aria-controls="callList"
+            data-filter="in-progress"
+            type="button">
+      対応中 <span class="filter-count" id="countInProgress">0</span>
+    </button>
+  </div>
+
+  <!-- 呼び出しリスト -->
+  <div id="callList" class="call-notification__list" role="tabpanel" aria-label="呼び出し一覧">
+    <!-- 空状態 -->
+    <div id="emptyState" class="call-notification__empty" hidden aria-live="polite">
+      <div class="empty-icon">✨</div>
+      <p>呼び出しはありません</p>
+    </div>
+
+    <!-- ローディング状態 -->
+    <div id="loadingState" class="call-notification__loading" hidden aria-live="polite">
+      <div class="spinner"></div>
+      <p>呼び出しデータを読み込み中...</p>
+    </div>
+
+    <!-- 呼び出しアイテムコンテナ -->
+    <div id="callItemsContainer" class="call-items-list">
+      <!-- JavaScript で動的に生成 -->
+    </div>
+  </div>
+
+  <!-- テンプレート：呼び出しアイテム -->
+  <template id="callItemTemplate">
+    <article class="call-item" data-call-id="" role="alert" aria-live="polite">
+      <!-- 左：優先度インジケータ -->
+      <div class="call-item__priority-indicator">
+        <span class="priority-badge" aria-hidden="true"></span>
+      </div>
+
+      <!-- 中央：座席情報 -->
+      <div class="call-item__main">
+        <div class="call-item__seat-info">
+          <!-- 座席ID（最優先の視認性） -->
+          <span class="call-item__seat-id" role="status" aria-label="座席">
+            <!-- 動的に挿入 -->
+          </span>
+
+          <!-- ステータス表示 -->
+          <span class="call-item__status-badge">
+            <!-- 動的に挿入 -->
+          </span>
+        </div>
+
+        <!-- 呼び出し時刻と経過時間 -->
+        <div class="call-item__timestamp">
+          <time class="call-item__time-absolute" datetime="">
+            <!-- 動的に挿入 -->
+          </time>
+          <span class="call-item__time-elapsed" aria-label="経過時間">
+            <!-- 動的に挿入 -->
+          </span>
+        </div>
+
+        <!-- 呼び出し理由 -->
+        <div class="call-item__reason" aria-label="呼び出し理由">
+          <!-- 動的に挿入 -->
+        </div>
+      </div>
+
+      <!-- 右：アクション領域 -->
+      <div class="call-item__actions">
+        <!-- 対応ボタン（未対応 → 対応中） -->
+        <button class="call-item__action-btn call-item__acknowledge-btn" 
+                type="button"
+                aria-label="この呼び出しに対応する"
+                title="この呼び出しに対応を開始します（Enter キー）">
+          対応開始
+        </button>
+
+        <!-- 完了ボタン（対応中 → 完了） -->
+        <button class="call-item__action-btn call-item__complete-btn" 
+                type="button"
+                aria-label="この呼び出しを完了する"
+                title="この呼び出しを完了します（Enter キー）"
+                hidden>
+          完了
+        </button>
+
+        <!-- 削除ボタン（完了後） -->
+        <button class="call-item__action-btn call-item__dismiss-btn" 
+                type="button"
+                aria-label="この呼び出しを削除する"
+                title="削除（Backspace キー）"
+                hidden>
+          削除
+        </button>
+      </div>
+    </article>
+  </template>
+</div>
+
+<!-- ===== スタイルシート ===== -->
+<style>
+/**
+ * スタッフ呼び出し通知コンポーネント スタイル
+ * 
+ * 設計原則:
+ * - 視認性最優先（色だけに依存しない）
+ * - アイコン・テキスト・位置で情報を多重化
+ * - 最小タッチサイズ 44px
+ * - WCAG 2.1 AA 準拠
+ * - レスポンシブデザイン
+ */
+
+/* ===== Base Styles ===== */
+:root {
+  --color-primary: #ff7f32;
+  --color-primary-dark: #e86c1f;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-alert: #ef4444;
+  --color-info: #3b82f6;
+  --color-text: #1f2937;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+  --color-background: #f9fafb;
+  --color-background-light: #fff8f0;
+  
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 24px;
+  
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ===== Container ===== */
+.call-notification-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: #fff;
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Header ===== */
+.call-notification__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: var(--spacing-md);
+}
+
+.call-notification__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.call-notification__stats {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+}
+
+.stat-label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.stat-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  background: var(--color-background);
+  border-radius: var(--border-radius-sm);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* ===== Filter Tabs ===== */
+.call-notification__filters {
+  display: flex;
+  gap: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  position: relative;
+  min-height: 44px;
+}
+
+.filter-tab:hover,
+.filter-tab:focus {
+  color: var(--color-text);
+  background: var(--color-background);
+  outline: none;
+}
+
+.filter-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.filter-tab:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  background: var(--color-background);
+  border-radius: 10px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+/* ===== Call List ===== */
+.call-notification__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  min-height: 100px;
+}
+
+.call-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* ===== Empty State ===== */
+.call-notification__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl) var(--spacing-md);
+  background: var(--color-background-light);
+  border-radius: var(--border-radius-md);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.empty-icon {
+  font-size: var(--font-size-2xl);
+}
+
+.call-notification__empty p {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+
+/* ===== Loading State ===== */
+.call-notification__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Call Item ===== */
+.call-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-md);
+  background: #fff;
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-normal);
+  position: relative;
+}
+
+/* 未対応時の強調表示 */
+.call-item[data-status="pending"] {
+  border-color: var(--color-alert);
+  background: rgba(239, 68, 68, 0.02);
+  box-shadow: 
+    0 0 0 3px rgba(239, 68, 68, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 対応中 */
+.call-item[data-status="in-progress"] {
+  border-color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.02);
+}
+
+/* 完了済み */
+.call-item[data-status="completed"] {
+  border-color: var(--color-success);
+  background: rgba(16, 185, 129, 0.02);
+  opacity: 0.7;
+}
+
+/* キーボードフォーカス */
+.call-item:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===== Priority Indicator ===== */
+.call-item__priority-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+}
+
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+}
+
+/* 優先度インジケータ：視認性を色+テキスト+アイコンで多重化 */
+.call-item[data-status="pending"] .priority-badge {
+  background: var(--color-alert);
+  color: #fff;
+}
+
+.call-item[data-status="pending"] .priority-badge::before {
+  content: "!";
+}
+
+.call-item[data-status="in-progress"] .priority-badge {
+  background: var(--color-warning);
+  color: #fff;
+}
+
+.call-item[data-status="in-progress"] .priority-badge::before {
+  content: "⏳";
+}
+
+.call-item[data-status="completed"] .priority-badge {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.call-item[data-status="completed"] .priority-badge::before {
+  content: "✓";
+}
+
+/* ===== Main Content ===== */
+.call-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* 座席情報 */
+.call-item__seat-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.call-item__seat-id {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: 2px;
+  min-width: 80px;
+  display: inline-block;
+}
+
+/* ステータスバッジ */
+.call-item__status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.call-item[data-status="pending"] .call-item__status-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-alert);
+}
+
+.call-item[data-status="pending"] .call-item__status-badge::before {
+  content: "●";
+}
+
+.call-item[data-status="in-progress"] .call-item__status-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+}
+
+.call-item[data-status="in-progress"] .call-item__status-badge::before {
+  content: "◐";
+}
+
+.call-item[data-status="completed"] .call-item__status-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-success);
+}
+
+.call-item[data-status="completed"] .call-item__status-badge::before {
+  content: "✓";
+}
+
+/* タイムスタンプ */
+.call-item__timestamp {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.call-item__time-absolute {
+  font-weight: 600;
+}
+
+.call-item__time-elapsed {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-background);
+  border-radius: var(--border-radius-sm);
+}
+
+/* 呼び出し理由 */
+.call-item__reason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-background-light);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--border-radius-sm);
+  font-style: italic;
+}
+
+/* ===== Actions ===== */
+.call-item__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.call-item__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.call-item__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.call-item__action-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* 対応開始ボタン（未対応時） */
+.call-item__acknowledge-btn {
+  background: var(--color-alert);
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.call-item__acknowledge-btn:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+/* 完了ボタン（対応中時） */
+.call-item__complete-btn {
+  background: var(--color-success);
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.call-item__complete-btn:hover {
+  background: #059669;
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+}
+
+/* 削除ボタン（完了後） */
+.call-item__dismiss-btn {
+  background: var(--color-text-secondary);
+  color: #fff;
+  font-size: var(--font-size-sm);
+}
+
+.call-item__dismiss-btn:hover {
+  background: var(--color-text);
+}
+
+/* ===== Animations ===== */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 
+      0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+.call-item {
+  animation: slideIn var(--transition-normal);
+}
+
+.call-item[data-status="pending"] {
+  animation: slideIn var(--transition-normal), pulse 2s infinite;
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 768px) {
+  .call-item {
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-sm);
+  }
+
+  .call-item__actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .call-item__action-btn {
+    flex: 1;
+  }
+
+  .call-item__seat-id {
+    font-size: var(--font-size-xl);
+  }
+
+  .call-notification__filters {
+    gap: var(--spacing-xs);
+  }
+
+  .filter-tab {
+    padding: var(--spacing-sm) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .call-notification-container {
+    padding: var(--spacing-sm);
+  }
+
+  .call-item {
+    grid-template-columns: 1fr;
+  }
+
+  .call-item__priority-indicator {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+  }
+
+  .call-item__main {
+    padding-right: 40px;
+  }
+
+  .call-item__seat-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .call-item__actions {
+    gap: var(--spacing-xs);
+  }
+
+  .call-item__action-btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-height: 40px;
+  }
+}
+
+/* ===== Accessibility ===== */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* キーボードナビゲーション表示 */
+.call-item:focus-within {
+  box-shadow: 
+    0 0 0 2px #fff,
+    0 0 0 4px var(--color-primary);
+}
+
+/* ===== Print Styles ===== */
+@media print {
+  .call-item__actions {
+    display: none;
+  }
+
+  .call-notification__filters {
+    display: none;
+  }
+}
+</style>
+
+<!-- ===== JavaScript Module ===== -->
+<script>
+/**
+ * スタッフ呼び出し通知コンポーネント JavaScript
+ * 
+ * 機能:
+ * - 呼び出し一覧の表示・更新
+ * - ステータス遷移（未対応 → 対応中 → 完了）
+ * - キーボード操作対応
+ * - アクセシビリティ対応
+ */
+
+const StaffCallNotificationComponent = (() => {
+  // 状態定義
+  const STATUS = {
+    PENDING: 'pending',
+    IN_PROGRESS: 'in-progress',
+    COMPLETED: 'completed'
+  };
+
+  // 内部状態
+  let state = {
+    calls: [],
+    currentFilter: 'all',
+    focusedIndex: -1
+  };
+
+  // DOM要素のキャッシュ
+  const DOM = {};
+
+  /**
+   * ダミー呼び出しデータを生成
+   */
+  function generateDummyCalls() {
+    const seats = ['A-01', 'B-02', 'C-05', 'D-03'];
+    const reasons = [
+      'トイレットペーパーがない',
+      '追加注文したい',
+      'おしぼりください',
+      'グラスを下げてほしい',
+      'メニューが見あたらない'
+    ];
+
+    return seats.map((seatId, idx) => ({
+      id: `call_${idx + 1}`,
+      seatId,
+      status: [STATUS.PENDING, STATUS.IN_PROGRESS, STATUS.COMPLETED][Math.floor(Math.random() * 3)],
+      reason: reasons[Math.floor(Math.random() * reasons.length)],
+      createdAt: new Date(Date.now() - Math.random() * 300000).toISOString()
+    }));
+  }
+
+  /**
+   * 時刻フォーマット
+   */
+  function formatTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /**
+   * 経過時間フォーマット
+   */
+  function getElapsedTime(isoString) {
+    const date = new Date(isoString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return `${seconds}秒前`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}分前`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}時間前`;
+  }
+
+  /**
+   * ステータスラベル
+   */
+  function getStatusLabel(status) {
+    const labels = {
+      [STATUS.PENDING]: '未対応',
+      [STATUS.IN_PROGRESS]: '対応中',
+      [STATUS.COMPLETED]: '完了'
+    };
+    return labels[status] || 'unknown';
+  }
+
+  /**
+   * DOM要素をキャッシュ
+   */
+  function cacheDOM() {
+    DOM.container = document.getElementById('callNotificationContainer');
+    DOM.itemsContainer = document.getElementById('callItemsContainer');
+    DOM.emptyState = document.getElementById('emptyState');
+    DOM.loadingState = document.getElementById('loadingState');
+    DOM.pendingCount = document.getElementById('pendingCount');
+    DOM.inProgressCount = document.getElementById('inProgressCount');
+    DOM.completedCount = document.getElementById('completedCount');
+    DOM.filterTabs = document.querySelectorAll('.filter-tab');
+    DOM.template = document.getElementById('callItemTemplate');
+    DOM.countAll = document.getElementById('countAll');
+    DOM.countPending = document.getElementById('countPending');
+    DOM.countInProgress = document.getElementById('countInProgress');
+  }
+
+  /**
+   * 呼び出しアイテムを作成・レンダリング
+   */
+  function renderCallItem(call) {
+    const clone = DOM.template.content.cloneNode(true);
+    const article = clone.querySelector('article');
+
+    article.dataset.callId = call.id;
+    article.dataset.status = call.status;
+
+    // 座席ID
+    const seatIdEl = clone.querySelector('.call-item__seat-id');
+    seatIdEl.textContent = call.seatId;
+
+    // ステータスバッジ
+    const statusBadgedEl = clone.querySelector('.call-item__status-badge');
+    statusBadgedEl.textContent = getStatusLabel(call.status);
+
+    // タイムスタンプ
+    const timeEl = clone.querySelector('.call-item__time-absolute');
+    const formattedTime = formatTime(call.createdAt);
+    timeEl.datetime = call.createdAt;
+    timeEl.textContent = formattedTime;
+
+    const elapsedEl = clone.querySelector('.call-item__time-elapsed');
+    elapsedEl.textContent = getElapsedTime(call.createdAt);
+
+    // 呼び出し理由
+    const reasonEl = clone.querySelector('.call-item__reason');
+    reasonEl.textContent = call.reason;
+
+    // ボタン制御
+    const acknowledgeBtn = clone.querySelector('.call-item__acknowledge-btn');
+    const completeBtn = clone.querySelector('.call-item__complete-btn');
+    const dismissBtn = clone.querySelector('.call-item__dismiss-btn');
+
+    if (call.status === STATUS.PENDING) {
+      acknowledgeBtn.removeAttribute('hidden');
+      completeBtn.setAttribute('hidden', '');
+      dismissBtn.setAttribute('hidden', '');
+    } else if (call.status === STATUS.IN_PROGRESS) {
+      acknowledgeBtn.setAttribute('hidden', '');
+      completeBtn.removeAttribute('hidden');
+      dismissBtn.setAttribute('hidden', '');
+    } else {
+      acknowledgeBtn.setAttribute('hidden', '');
+      completeBtn.setAttribute('hidden', '');
+      dismissBtn.removeAttribute('hidden');
+    }
+
+    // イベントリスナー
+    acknowledgeBtn.addEventListener('click', () => updateStatus(call.id, STATUS.IN_PROGRESS));
+    completeBtn.addEventListener('click', () => updateStatus(call.id, STATUS.COMPLETED));
+    dismissBtn.addEventListener('click', () => removeCall(call.id));
+
+    return clone;
+  }
+
+  /**
+   * すべての呼び出しをレンダリング
+   */
+  function render() {
+    // 統計情報を更新
+    updateStats();
+
+    // フィルター適用
+    const filtered = state.calls.filter(call => {
+      if (state.currentFilter === 'all') return true;
+      return call.status === state.currentFilter;
+    });
+
+    // 空状態チェック
+    if (filtered.length === 0) {
+      DOM.itemsContainer.innerHTML = '';
+      DOM.emptyState.removeAttribute('hidden');
+      return;
+    }
+
+    DOM.emptyState.setAttribute('hidden', '');
+    DOM.itemsContainer.innerHTML = '';
+
+    filtered.forEach(call => {
+      const fragment = renderCallItem(call);
+      DOM.itemsContainer.appendChild(fragment);
+    });
+
+    // キーボードナビゲーション設定
+    setupKeyboardNavigation();
+  }
+
+  /**
+   * 統計情報を更新
+   */
+  function updateStats() {
+    const pending = state.calls.filter(c => c.status === STATUS.PENDING).length;
+    const inProgress = state.calls.filter(c => c.status === STATUS.IN_PROGRESS).length;
+    const completed = state.calls.filter(c => c.status === STATUS.COMPLETED).length;
+
+    DOM.pendingCount.textContent = pending;
+    DOM.inProgressCount.textContent = inProgress;
+    DOM.completedCount.textContent = completed;
+
+    DOM.countAll.textContent = state.calls.length;
+    DOM.countPending.textContent = pending;
+    DOM.countInProgress.textContent = inProgress;
+  }
+
+  /**
+   * ステータスを更新
+   */
+  function updateStatus(callId, newStatus) {
+    const call = state.calls.find(c => c.id === callId);
+    if (call) {
+      call.status = newStatus;
+      render();
+      
+      // 音声フィードバック（オプション）
+      playNotificationSound();
+    }
+  }
+
+  /**
+   * 呼び出しを削除
+   */
+  function removeCall(callId) {
+    state.calls = state.calls.filter(c => c.id !== callId);
+    render();
+  }
+
+  /**
+   * 通知音を再生（オプション）
+   */
+  function playNotificationSound() {
+    // ブラウザの制限により、実装は簡略化
+    if (navigator.vibrate) {
+      navigator.vibrate(100);  // モバイル振動
+    }
+  }
+
+  /**
+   * キーボードナビゲーション
+   */
+  function setupKeyboardNavigation() {
+    const items = DOM.itemsContainer.querySelectorAll('.call-item');
+
+    items.forEach((item, index) => {
+      const buttons = item.querySelectorAll('button');
+
+      buttons.forEach(button => {
+        button.addEventListener('keydown', (e) => {
+          // Enter: ボタン実行
+          if (e.key === 'Enter') {
+            button.click();
+          }
+          // ArrowDown/ArrowUp: 次/前の呼び出しに移動
+          else if (e.key === 'ArrowDown' && index < items.length - 1) {
+            items[index + 1].querySelector('button')?.focus();
+          } else if (e.key === 'ArrowUp' && index > 0) {
+            items[index - 1].querySelector('button')?.focus();
+          }
+          // Backspace: 削除（完了済みのみ）
+          else if (e.key === 'Backspace') {
+            const dismissBtn = item.querySelector('.call-item__dismiss-btn');
+            if (dismissBtn && !dismissBtn.hasAttribute('hidden')) {
+              dismissBtn.click();
+            }
+          }
+        });
+      });
+    });
+  }
+
+  /**
+   * フィルタを設定
+   */
+  function setFilter(filter) {
+    state.currentFilter = filter;
+
+    // UI更新
+    DOM.filterTabs.forEach(tab => {
+      if (tab.dataset.filter === filter) {
+        tab.classList.add('filter-tab--active');
+        tab.setAttribute('aria-selected', 'true');
+      } else {
+        tab.classList.remove('filter-tab--active');
+        tab.setAttribute('aria-selected', 'false');
+      }
+    });
+
+    render();
+  }
+
+  /**
+   * フィルタボタンのイベントリスナー
+   */
+  function setupFilterTabs() {
+    DOM.filterTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        setFilter(tab.dataset.filter);
+      });
+    });
+  }
+
+  /**
+   * 初期化
+   */
+  function init() {
+    console.log('[StaffCallNotificationComponent] Initializing...');
+
+    cacheDOM();
+
+    // ダミーデータを読み込み
+    state.calls = generateDummyCalls();
+
+    // フィルタタブをセットアップ
+    setupFilterTabs();
+
+    // 初期描画
+    render();
+
+    console.log('[StaffCallNotificationComponent] Initialized');
+  }
+
+  // 公開API
+  return {
+    init,
+    setCalls: (calls) => {
+      state.calls = calls;
+      render();
+    },
+    addCall: (call) => {
+      state.calls.unshift(call);
+      render();
+    },
+    getState: () => state
+  };
+})();
+
+// 初期化
+document.addEventListener('DOMContentLoaded', () => {
+  StaffCallNotificationComponent.init();
+});
+</script>
