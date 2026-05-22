@@ -356,12 +356,54 @@
       };
     })();
 
+    const STAFF_CALL_CHANNEL = 'staff-call-channel';
+    const STAFF_CALL_STORAGE_KEY = 'staff-call-notification';
+    let staffCallChannel = null;
+
+    function deliverStoredStaffCall(onMessage) {
+      try {
+        const value = localStorage.getItem(STAFF_CALL_STORAGE_KEY);
+        if (!value) return;
+        const message = JSON.parse(value);
+        if (message && message.type === 'staff-call' && message.payload) {
+          onMessage(message.payload);
+        }
+      } catch (error) {
+        console.warn('staff call storage parse failed', error);
+      }
+    }
+
+    function createStaffCallChannel(onMessage) {
+      if ('BroadcastChannel' in window) {
+        staffCallChannel = new BroadcastChannel(STAFF_CALL_CHANNEL);
+        staffCallChannel.addEventListener('message', event => {
+          if (event.data && event.data.type === 'staff-call') {
+            onMessage(event.data.payload);
+          }
+        });
+      }
+      window.addEventListener('storage', event => {
+        if (event.key === STAFF_CALL_STORAGE_KEY && event.newValue) {
+          try {
+            const message = JSON.parse(event.newValue);
+            if (message && message.type === 'staff-call') {
+              onMessage(message.payload);
+            }
+          } catch (error) {
+            console.warn('staff call storage message parse failed', error);
+          }
+        }
+      });
+      deliverStoredStaffCall(onMessage);
+    }
+
     // --------------------------------------------------
     // お客様画面（モーダル）とスタッフ画面の連携処理
     // --------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
       // 1. スタッフコンポーネントの初期化
       StaffCallNotificationComponent.init();
+      createStaffCallChannel(StaffCallNotificationComponent.addCall);
 
       // 2. モーダル操作用の要素取得
       const btnCall = document.getElementById('btnCall');

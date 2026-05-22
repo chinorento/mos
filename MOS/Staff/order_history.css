@@ -1,0 +1,64 @@
+/* 基本は既存テーマに合わせたコンパクトレイアウト */
+* { box-sizing: border-box; }
+html,body { margin:0; padding:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", Meiryo, sans-serif; background:#fff8f0; color:#333; }
+.container { max-width:1200px; margin:0 auto; padding:12px; }
+
+/* ヘッダー（コンパクト） */
+.app-header { background: linear-gradient(180deg,#ff7f32,#ff8f45); color:#fff; padding:8px 12px; position:sticky; top:0; z-index:100; }
+.header-inner { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.header-left { display:flex; flex-direction:column; gap:4px; }
+.app-header h1 { margin:0; font-size:16px; font-weight:700; }
+.status { display:flex; gap:8px; align-items:center; font-size:12px; }
+.current-time { background: rgba(255,255,255,0.12); padding:3px 6px; border-radius:4px; font-size:12px; }
+
+/* コントロール領域 */
+.controls { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0; flex-wrap:wrap; }
+.counts { font-size:14px; color:#444; }
+.filters { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.filter-btn { background:transparent; border:1px solid #ddd; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:13px; }
+.filter-btn.active { background:#ff7f32; color:#fff; border-color:#ff7f32; }
+
+/* 履歴リスト */
+.orders-list { display:flex; flex-direction:column; gap:10px; }
+.order-card { background:#fff; border:1px solid #eee; border-radius:8px; padding:10px; display:flex; justify-content:space-between; gap:12px; align-items:center; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+.order-info { display:flex; gap:12px; align-items:center; flex:1; min-width:0; }
+.order-meta { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.order-name { font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.order-qty { color:#666; font-size:13px; }
+.order-ts { color:#999; font-size:12px; }
+
+/* アクション */
+.order-actions { display:flex; gap:8px; align-items:center; }
+.primary { background:#ff7f32; color:#fff; border:none; padding:8px 10px; border-radius:6px; cursor:pointer; min-height:36px; font-size:14px; }
+.secondary { background:#fff; color:#ff7f32; border:1px solid #ff7f32; padding:8px 10px; border-radius:6px; cursor:pointer; min-height:36px; font-size:14px; }
+
+/* 状態表示 */
+.tag { padding:4px 8px; border-radius:999px; font-size:12px; }
+.tag.pending { background:#fff3cd; color:#856404; border:1px solid #ffeeba; }
+.tag.delivered { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+
+/* TOPへ ボタン（ヘッダー右・他ページと統一） */
+.top-link {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+  transition: background-color 0.18s ease;
+}
+.top-link:focus,
+.top-link:hover {
+  background: rgba(255,255,255,0.18);
+  text-decoration: none;
+}
+
+/* レスポンシブ */
+@media (max-width:420px) {
+  .order-info { flex-direction:column; align-items:flex-start; }
+  .order-actions { width:100%; justify-content:flex-end; }
+  .controls { flex-direction:column; align-items:flex-start; gap:8px; }
+}

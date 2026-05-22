@@ -10,7 +10,125 @@
   - 各通知は未対応/対応中/完了のステータスを持つ
   - キーボード操作で完全に制御可能
 -->
-<title>みどり亭｜スタッフ画面</title>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>みどり亭｜スタッフダッシュボード</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f3f4f6;
+      color: #333;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #f08204 0%, #f08204 100%);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .app-header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .dashboard-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .dashboard-nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .nav-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px 20px;
+      text-decoration: none;
+      color: #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      border: 2px solid transparent;
+    }
+    .nav-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+      border-color: #f08204;
+    }
+    .nav-card__icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+    }
+    .nav-card__title {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .nav-card__desc {
+      margin: 0;
+      font-size: 14px;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>みどり亭｜スタッフダッシュボード</h1>
+    <button class="logout-btn" onclick="window.location.href='staff_login.html'">ログアウト</button>
+  </header>
+
+  <main class="dashboard-container">
+    <nav class="dashboard-nav" aria-label="スタッフメニュー">
+      <a class="nav-card" href="staff_order_history.html">
+        <div class="nav-card__icon">📋</div>
+        <h2 class="nav-card__title">注文一覧・提供状況確認</h2>
+        <p class="nav-card__desc">配膳状況の確認やステータス変更を行います</p>
+      </a>
+      <a class="nav-card" href="../Customer/menu_list.html">
+        <div class="nav-card__icon">📝</div>
+        <h2 class="nav-card__title">顧客注文入力画面</h2>
+        <p class="nav-card__desc">お客様の代わりに注文を入力します</p>
+      </a>
+      <a class="nav-card" href="staff_menu_manage.html">
+        <div class="nav-card__icon">🍔</div>
+        <h2 class="nav-card__title">メニュー管理画面</h2>
+        <p class="nav-card__desc">商品の品切れ設定や価格変更を行います</p>
+      </a>
+      <a class="nav-card" href="staff_account_manage.html">
+        <div class="nav-card__icon">👥</div>
+        <h2 class="nav-card__title">アカウント管理画面</h2>
+        <p class="nav-card__desc">スタッフの追加・権限設定を行います</p>
+      </a>
+    </nav>
+
 <div id="callNotificationContainer" class="call-notification-container" role="region" aria-live="polite" aria-label="スタッフ呼び出し通知">
   <!-- ヘッダー：統計情報 -->
   <div class="call-notification__header">
@@ -830,6 +948,20 @@ const StaffCallNotificationComponent = (() => {
   }
 
   /**
+   * localStorageから読み込み
+   */
+  function loadFromStorage() {
+    state.calls = JSON.parse(localStorage.getItem('staffCalls') || '[]');
+  }
+
+  /**
+   * localStorageに保存
+   */
+  function saveToStorage() {
+    localStorage.setItem('staffCalls', JSON.stringify(state.calls));
+  }
+
+  /**
    * 呼び出しアイテムを作成・レンダリング
    */
   function renderCallItem(call) {
@@ -943,6 +1075,7 @@ const StaffCallNotificationComponent = (() => {
     const call = state.calls.find(c => c.id === callId);
     if (call) {
       call.status = newStatus;
+      saveToStorage();
       render();
       
       // 音声フィードバック（オプション）
@@ -955,6 +1088,7 @@ const StaffCallNotificationComponent = (() => {
    */
   function removeCall(callId) {
     state.calls = state.calls.filter(c => c.id !== callId);
+    saveToStorage();
     render();
   }
 
@@ -1043,6 +1177,17 @@ const StaffCallNotificationComponent = (() => {
     // フィルタタブをセットアップ
     setupFilterTabs();
 
+    // ストレージから初期データロード
+    loadFromStorage();
+    
+    // ストレージイベントを監視して別タブからの変更を反映
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'staffCalls') {
+        loadFromStorage();
+        render();
+      }
+    });
+
     // 初期描画
     render();
 
@@ -1058,6 +1203,7 @@ const StaffCallNotificationComponent = (() => {
     },
     addCall: (call) => {
       state.calls.unshift(call);
+      saveToStorage();
       render();
     },
     getState: () => state
@@ -1070,3 +1216,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script src="STAFF_main.js"></script>
+  </main>
+</body>
+</html>
