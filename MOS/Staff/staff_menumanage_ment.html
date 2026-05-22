@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>メニュー管理 - みどり亭</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f3f4f6;
+      color: #333;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #f08204 0%, #f08204 100%);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .app-header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .top-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    .top-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .container {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .btn-primary {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover {
+      background: #059669;
+    }
+    .menu-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .menu-table th, .menu-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .menu-table th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #4b5563;
+    }
+    .menu-table tr:last-child td {
+      border-bottom: none;
+    }
+    .price-input {
+      width: 100px;
+      padding: 6px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+      vertical-align: middle;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 26px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #ef4444; /* 品切れ時は赤 */
+    }
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+    .status-label {
+      margin-left: 8px;
+      font-weight: bold;
+      vertical-align: middle;
+      display: inline-block;
+      width: 60px;
+    }
+    .sold-out {
+      color: #ef4444;
+    }
+    .in-stock {
+      color: #10b981;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+    
+    @media (max-width: 768px) {
+      .menu-table, .menu-table tbody, .menu-table tr, .menu-table td {
+        display: block;
+        width: 100%;
+      }
+      .menu-table thead {
+        display: none;
+      }
+      .menu-table tr {
+        margin-bottom: 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+      }
+      .menu-table td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .menu-table td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 16px;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: bold;
+        color: #4b5563;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>みどり亭｜メニュー管理画面</h1>
+    <a href="STAFF_main.html" class="top-btn">TOPへ戻る</a>
+  </header>
+
+  <main class="container">
+    <div class="controls">
+      <div>
+        <h2 style="margin:0 0 4px 0;">商品設定</h2>
+        <p style="margin:0;color:#6b7280;font-size:14px;">品切れ状態と価格を編集・保存できます。</p>
+      </div>
+      <button id="saveBtn" class="btn-primary">変更を保存</button>
+    </div>
+
+    <table class="menu-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>商品名</th>
+          <th>カテゴリ</th>
+          <th>価格 (円)</th>
+          <th>品切れ設定</th>
+        </tr>
+      </thead>
+      <tbody id="menuTableBody">
+        <!-- JSで生成 -->
+      </tbody>
+    </table>
+  </main>
+
+  <div id="toast" class="toast">設定を保存しました</div>
+
+  <!-- api.jsを読み込んで初期データを利用する -->
+  <script src="../Customer/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const tableBody = document.getElementById('menuTableBody');
+      const saveBtn = document.getElementById('saveBtn');
+      const toast = document.getElementById('toast');
+
+      // データ取得
+      let menuItems = [];
+      try {
+        // デフォルトのメニュー情報を取得
+        menuItems = await API.getMenuItems();
+      } catch(e) {
+        console.error(e);
+      }
+
+      // LocalStorageにカスタマイズされたメニューがあればそちらを優先
+      const savedMenu = localStorage.getItem('customMenuItems');
+      if (savedMenu) {
+        const parsedMenu = JSON.parse(savedMenu);
+        // IDベースでマージ
+        menuItems = menuItems.map(item => {
+          const customItem = parsedMenu.find(c => c.id === item.id);
+          return customItem ? { ...item, ...customItem } : item;
+        });
+      }
+
+      // SoldOut情報をAppStateやlocalStorageから取得 (他画面との連携用)
+      let soldOutItems = JSON.parse(localStorage.getItem('soldOutItems') || '[]');
+
+      // 描画
+      function renderTable() {
+        tableBody.innerHTML = '';
+        menuItems.forEach(item => {
+          const tr = document.createElement('tr');
+          const isSoldOut = soldOutItems.includes(item.id) || item.soldOut;
+          
+          tr.innerHTML = `
+            <td data-label="ID">${item.id}</td>
+            <td data-label="商品名">
+              <span style="font-size:24px; vertical-align:middle; margin-right:8px;">${item.image}</span>
+              <strong>${item.name}</strong>
+            </td>
+            <td data-label="カテゴリ">${item.category}</td>
+            <td data-label="価格 (円)">
+              <input type="number" class="price-input" data-id="${item.id}" value="${item.price}" min="0" step="10">
+            </td>
+            <td data-label="品切れ設定">
+              <label class="switch">
+                <input type="checkbox" class="soldout-toggle" data-id="${item.id}" ${isSoldOut ? 'checked' : ''}>
+                <span class="slider"></span>
+              </label>
+              <span class="status-label ${isSoldOut ? 'sold-out' : 'in-stock'}">${isSoldOut ? '品切れ' : '販売中'}</span>
+            </td>
+          `;
+          tableBody.appendChild(tr);
+        });
+
+        // 品切れトグルの表示切り替えイベント
+        document.querySelectorAll('.soldout-toggle').forEach(toggle => {
+          toggle.addEventListener('change', (e) => {
+            const label = e.target.closest('td').querySelector('.status-label');
+            if (e.target.checked) {
+              label.textContent = '品切れ';
+              label.className = 'status-label sold-out';
+            } else {
+              label.textContent = '販売中';
+              label.className = 'status-label in-stock';
+            }
+          });
+        });
+      }
+
+      renderTable();
+
+      // 保存処理
+      saveBtn.addEventListener('click', () => {
+        const updatedMenu = [];
+        const newSoldOutItems = [];
+
+        menuItems.forEach(item => {
+          const priceInput = document.querySelector(`.price-input[data-id="${item.id}"]`);
+          const soldOutToggle = document.querySelector(`.soldout-toggle[data-id="${item.id}"]`);
+          
+          const newPrice = parseInt(priceInput.value, 10);
+          const isSoldOut = soldOutToggle.checked;
+
+          updatedMenu.push({
+            id: item.id,
+            price: isNaN(newPrice) ? item.price : newPrice,
+            soldOut: isSoldOut
+          });
+
+          if (isSoldOut) {
+            newSoldOutItems.push(item.id);
+          }
+        });
+
+        // 価格やベースの売切フラグを上書きするためのデータを保存
+        localStorage.setItem('customMenuItems', JSON.stringify(updatedMenu));
+        
+        // Customer画面の api.js / shared-state.js と共有するための売切リストを更新
+        localStorage.setItem('soldOutItems', JSON.stringify(newSoldOutItems));
+
+        // トースト表示
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+      });
+    });
+  </script>
+</body>
+</html>

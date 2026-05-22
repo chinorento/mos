@@ -10,6 +10,8 @@
  * @author POS Development Team
  */
 
+const isStaffPage = window.location.pathname.toLowerCase().includes('/staff/');
+
 /* ===== 設定定数 ===== */
 const MENU_CONFIG = {
   STORE_ID: "001",
@@ -20,7 +22,7 @@ const MENU_CONFIG = {
     TIMEOUT_MS: 5000
   },
   ORDER: {
-    ENDPOINT: 'insert_order.php',
+    ENDPOINT: isStaffPage ? '../Customer/insert_order.php' : 'insert_order.php',
     PHP_REQUIRED_PORT: '5500'
   },
   STORAGE: {
@@ -150,10 +152,23 @@ const menuManager = {
     
     try {
       // 新しいAPI経由でメニューを取得
-      const menuItems = await API.getMenuItems();
+      let menuItems = await API.getMenuItems();
       if (!menuItems || !Array.isArray(menuItems)) {
         throw new Error('Invalid menu data returned');
       }
+
+      // 管理画面で設定した価格や品切れ情報を反映
+      const savedMenu = localStorage.getItem('customMenuItems');
+      if (savedMenu) {
+        const parsedMenu = utils.safeParseJSON(savedMenu, []);
+        if (Array.isArray(parsedMenu)) {
+          menuItems = menuItems.map(item => {
+            const customItem = parsedMenu.find(c => c.id === item.id);
+            return customItem ? { ...item, ...customItem } : item;
+          });
+        }
+      }
+
       menuState.items = menuItems;
       
       // AppState にもメニューアイテムを保存
@@ -942,8 +957,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await menuManager.loadMenu();
     
     // 売切アイテムを AppState に設定
-    const soldOut = await API.getSoldOutItems();
-    AppState.soldOutItems = soldOut || [];
+    const apiSoldOut = await API.getSoldOutItems();
+    const localSoldOut = utils.safeParseJSON(localStorage.getItem('soldOutItems'), null);
+    AppState.soldOutItems = localSoldOut || apiSoldOut || [];
     
     uiManager.bindEventHandlers();
     uiManager.renderCart();

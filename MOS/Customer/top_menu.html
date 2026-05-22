@@ -203,82 +203,21 @@
 
     <script src="shared-state.js"></script>
     <script src="api.js"></script>
-    <script src="STAFF_main.js" defer></script>
-  </body>
-</html>
-
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>呼び出しシステム</title>
-
-    <style>
-      /* 通知アイテムのスタイル */
-      .call-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        background-color: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-      }
-
-      /* 対応完了ボタンのスタイル */
-      .resolve-btn {
-        padding: 6px 12px;
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-
-      .resolve-btn:hover {
-        background-color: #45a049;
-      }
-      .call-item {
-        display: flex;
-        justify-content: space-between; /* ...省略... */
-      }
-      /* モーダルを一時的に表示するための簡易CSS（テスト用） */
-      .modal[hidden] {
-        display: none;
-      }
-    </style>
-  </head>
-  <body>
-    <!-- <button id="openModal" style="margin-bottom: 20px">
-      呼び出し画面を開く
-    </button> -->
-
-    <div id="callModal" class="modal" hidden aria-hidden="true"></div>
-
-    <div id="callList" class="call-notification__list"></div>
-
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        // 要素の取得
+        const btnCall = document.getElementById("btnCall");
         const callModal = document.getElementById("callModal");
         const confirmCallBtn = document.getElementById("confirmCall");
         const cancelCallBtn = document.getElementById("cancelCall");
-        const callList = document.getElementById("callList");
-        const emptyState = document.getElementById("emptyState");
+        const callResultModal = document.getElementById("callResultModal");
+        const closeCallResultBtn = document.getElementById("closeCallResult");
 
-        let callCounter = 1; // 呼び出し番号のカウンター（デモ用）
-
-        // リストが空かどうかを判定する関数
-        function checkEmptyState() {
-          // emptyState以外の通知アイテムがリスト内に存在するかチェック
-          const hasNotifications =
-            callList.querySelectorAll(".call-item").length > 0;
-          if (hasNotifications) {
-            emptyState.hidden = true;
-          } else {
-            emptyState.hidden = false;
-          }
+        // 呼び出し確認モーダルを開く
+        if (btnCall) {
+          btnCall.addEventListener("click", () => {
+            callModal.hidden = false;
+            callModal.removeAttribute("aria-hidden");
+          });
         }
 
         // 1. 呼び出すボタンの処理
@@ -287,33 +226,24 @@
           callModal.hidden = true;
           callModal.setAttribute("aria-hidden", "true");
 
-          // 新しい通知要素（DOM）を作成
-          const callItem = document.createElement("div");
-          callItem.className = "call-item"; // CSS装飾用のクラス
+          // スタッフの画面に通知を送るため、localStorageに呼び出しデータを保存
+          const seatId = localStorage.getItem("seatId") || "未設定";
+          const calls = JSON.parse(localStorage.getItem("staffCalls") || "[]");
+          
+          const newCall = {
+            id: "call_" + Date.now(),
+            seatId: seatId,
+            status: "pending",
+            createdAt: new Date().toISOString(),
+            reason: "お客様からの呼び出し"
+          };
+          
+          calls.unshift(newCall);
+          localStorage.setItem("staffCalls", JSON.stringify(calls));
 
-          // 現在時刻の取得
-          const now = new Date();
-          const timeText = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-          // 通知内容のHTMLをセット
-          callItem.innerHTML = `
-      <span>🔔 呼び出し #${callCounter} (時刻: ${timeText})</span>
-      <button class="resolve-btn">対応完了</button>
-    `;
-
-          // 「対応完了」ボタンを押したときの処理（通知を削除する）
-          const resolveBtn = callItem.querySelector(".resolve-btn");
-          resolveBtn.addEventListener("click", () => {
-            callItem.remove(); // 要素を削除
-            checkEmptyState(); // 空になったか再チェック
-          });
-
-          // リストに通知を追加
-          callList.appendChild(callItem);
-
-          // カウンターを増やし、空状態を更新
-          callCounter++;
-          checkEmptyState();
+          // 完了モーダルを表示
+          callResultModal.hidden = false;
+          callResultModal.removeAttribute("aria-hidden");
         });
 
         // 2. キャンセルボタン（閉じる）の処理
@@ -322,16 +252,11 @@
           callModal.setAttribute("aria-hidden", "true");
         });
 
-        // 初期ロード時の空状態チェック
-        checkEmptyState();
-      });
-      document.addEventListener("DOMContentLoaded", () => {
-        /* ...省略... */
-      });
-
-      // ※テスト用にモーダルを開くためのコード（必要に応じて追加）
-      document.getElementById("openModal")?.addEventListener("click", () => {
-        document.getElementById("callModal").hidden = false;
+        // 3. 完了モーダルを閉じる
+        closeCallResultBtn.addEventListener("click", () => {
+          callResultModal.hidden = true;
+          callResultModal.setAttribute("aria-hidden", "true");
+        });
       });
     </script>
   </body>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>注文履歴 - みどり亭</title>
-  <link rel="stylesheet" href="order_history.css">
+  <link rel="stylesheet" href="../Customer/order_history.css">
 </head>
 <body>
   <header class="app-header" role="banner">
@@ -12,12 +12,22 @@
       <div class="header-left">
         <h1 id="storeName">みどり亭 ○○店</h1>
         <div class="status" role="status" aria-live="polite">
-          <span id="seatLabel">席：未設定</span>
-          <span id="loLabel">ラストオーダーまで：計算中...</span>
+          <label for="staffSeatSelect" style="font-size: 14px; font-weight: bold; margin-right: 4px;">座席:</label>
+          <select id="staffSeatSelect" style="padding: 4px; border-radius: 4px; font-size: 14px; background: white; color: #333;" aria-label="現在の座席">
+            <option value="">選択してください</option>
+            <option value="A-01">A-01</option>
+            <option value="A-02">A-02</option>
+            <option value="B-01">B-01</option>
+            <option value="B-02">B-02</option>
+            <option value="C-01">C-01</option>
+            <option value="C-02">C-02</option>
+            <option value="C-03">C-03</option>
+          </select>
+          <span id="loLabel" aria-label="ラストオーダーまでの時間" style="margin-left: 10px;">ラストオーダーまで：計算中...</span>
         </div>
       </div>
       <div class="header-right">
-        <a href="top_menu.html" class="top-link" aria-label="トップへ">TOPへ</a>
+        <a href="STAFF_main.html" class="top-link" aria-label="トップへ">TOPへ</a>
         <time id="currentTime" class="current-time" aria-live="polite">--:--:--</time>
       </div>
     </div>
@@ -45,8 +55,32 @@
   <!-- トースト（top_menu.js の showToast と互換） -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="shared-state.js"></script>
-  <script src="api.js"></script>
-  <script src="order_history.js"></script>
+  <script src="../Customer/shared-state.js"></script>
+  <script src="../Customer/api.js"></script>
+  <script src="../Customer/order_history.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const seatSelect = document.getElementById('staffSeatSelect');
+      const currentSeat = localStorage.getItem('seatId');
+      
+      if (currentSeat) {
+        const option = Array.from(seatSelect.options).find(opt => opt.value === currentSeat);
+        if (option) {
+          option.selected = true;
+        } else {
+          seatSelect.appendChild(new Option(currentSeat, currentSeat, true, true));
+        }
+      }
+
+      seatSelect.addEventListener('change', (e) => {
+        const newSeat = e.target.value;
+        if (newSeat) {
+          localStorage.setItem('seatId', newSeat);
+          if (typeof AppState !== 'undefined') AppState.setSeatId(newSeat);
+          window.location.reload(); // 座席に紐づく履歴などを再ロード
+        }
+      });
+    });
+  </script>
 </body>
 </html>
