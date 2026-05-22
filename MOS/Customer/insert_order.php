@@ -25,7 +25,7 @@ try {
     $datetime = $now->format('Y-m-d H:i:s');
 
     // SQLクエリを準備（テーブル構成に合わせる）
-    $stmt = $pdo->prepare("INSERT INTO `order_history`(`id`, `席番`, `日時`, `注文内容`, `金額`, `配膳フラグ`, `削除フラグ`) 
+    $stmt = $pdo->prepare("INSERT INTO `order_history`(`id`, `席番`, `日時`, `注文内容`, `個数`, `金額`, `配膳フラグ`, `削除フラグ`) 
                             VALUES (:id, :seat_no, :datetime, :order_content, :amount, :served_flag, :deleted_flag)");
     $stmt->bindParam(':id', $id);
     $stmt->bindParam(':seat_no', $seatNo);

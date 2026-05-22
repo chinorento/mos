@@ -14,7 +14,7 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // クエリ実行
-    $stmt = $pdo->prepare("SELECT `id`, `席番`, `日時`, `注文内容`, `金額`, `配膳フラグ`, `削除フラグ` 
+    $stmt = $pdo->prepare("SELECT `id`, `席番`, `日時`, `注文内容`, `個数, `金額`, `配膳フラグ`, `削除フラグ` 
                             FROM `order_history` WHERE `削除フラグ` = 0 ");
     $stmt->execute();
 
