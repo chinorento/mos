@@ -15,24 +15,38 @@ const API_CONFIG = {
 
 /* ===== メニューAPI ===== */
 async function getMenuItems(storeId = '001') {
+  let items;
   if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
+    items = await new Promise(resolve => {
       setTimeout(() => {
         resolve(generateDummyMenuItems());
       }, 500);
     });
+  } else {
+    try {
+      const response = await fetchWithTimeout(
+        `${API_CONFIG.BASE_URL}/menu?storeId=${storeId}`,
+        API_CONFIG.TIMEOUT_MS
+      );
+      items = await response.json();
+    } catch (error) {
+      console.error('Menu API error:', error);
+      items = generateDummyMenuItems();
+    }
   }
   
-  try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/menu?storeId=${storeId}`,
-      API_CONFIG.TIMEOUT_MS
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('Menu API error:', error);
-    return generateDummyMenuItems();
+  // 飲み放題プランの場合は対象カテゴリを0円にする
+  const isNomihodai = localStorage.getItem('selectedPlan') === 'nomihodai';
+  if (isNomihodai) {
+    items = items.map(item => {
+      if (item.category === 'アルコール' || item.category === 'ソフトドリンク') {
+        return { ...item, price: 0 };
+      }
+      return item;
+    });
   }
+  
+  return items;
 }
 
 function generateDummyMenuItems() {
@@ -58,7 +72,22 @@ function generateDummyMenuItems() {
     
     // 0円メニュー
     { id: 'm12', name: 'お絞り', category: '0円', price: 0, image: '🧻', popular: false },
-    { id: 'm13', name: '取り皿', category: '0円', price: 0, image: '🍽️', popular: false }
+    { id: 'm13', name: '取り皿', category: '0円', price: 0, image: '🍽️', popular: false },
+
+    // アルコール
+    { id: 'm14', name: 'プレミアム・モルツ', category: 'アルコール', price: 550, image: '🍺', popular: true },
+    { id: 'm15', name: 'ハイボール', category: 'アルコール', price: 450, image: '🥃', popular: true },
+    { id: 'm16', name: 'レモンサワー', category: 'アルコール', price: 450, image: '🍋', popular: true },
+    { id: 'm17', name: '梅酒', category: 'アルコール', price: 480, image: '🍶', popular: false },
+    { id: 'm18', name: '焼酎(麦)', category: 'アルコール', price: 450, image: '🍶', popular: false },
+    { id: 'm19', name: '日本酒', category: 'アルコール', price: 500, image: '🍶', popular: false },
+    
+    // ソフトドリンク
+    { id: 'm20', name: 'コーラ', category: 'ソフトドリンク', price: 300, image: '🥤', popular: false },
+    { id: 'm21', name: 'ジンジャーエール', category: 'ソフトドリンク', price: 300, image: '🥤', popular: false },
+    { id: 'm22', name: 'カルピス', category: 'ソフトドリンク', price: 300, image: '🥤', popular: false },
+    { id: 'm23', name: 'オレンジジュース', category: 'ソフトドリンク', price: 300, image: '🧃', popular: false },
+    { id: 'm24', name: 'リンゴジュース', category: 'ソフトドリンク', price: 300, image: '🧃', popular: false }
   ];
 }
 

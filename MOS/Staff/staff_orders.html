@@ -7,6 +7,107 @@
   <meta name="theme-color" content="#ff7f32" />
   <title>注文管理 - スタッフシステム</title>
   <link rel="stylesheet" href="staff_orders.css" />
+  <style>
+    /* order_history.html 風の見やすいカードレイアウトを追加 */
+    body {
+      background-color: #f3f4f6;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #f08204 0%, #f08204 100%);
+      color: white;
+      padding: 12px 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .toolbar {
+      background: white;
+      padding: 12px 20px;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 20px;
+    }
+    .toolbar-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+    
+    /* 座席ごとのカード (外枠) */
+    .seat-group {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border-top: 4px solid #f08204;
+    }
+    
+    /* 注文アイテムのカード (内枠) */
+    .order-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 12px;
+      background: #fafafa;
+    }
+    
+    /* 商品リスト */
+    .product-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 15px;
+      color: #333;
+    }
+    .product-item:last-child {
+      border-bottom: none;
+    }
+    
+    /* ボタン類 */
+    .btn-primary, .btn-secondary {
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: #10b981;
+      color: white;
+    }
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+    }
+  </style>
 </head>
 <body>
   <!-- ===== ヘッダー ===== -->
@@ -28,7 +129,7 @@
                 title="今すぐ更新（Ctrl+R）">
           🔄 更新
         </button>
-        <a href="#" class="header-btn" aria-label="ダッシュボードへ戻る">
+        <a href="STAFF_main.html" class="header-btn" aria-label="ダッシュボードへ戻る">
           ダッシュボード
         </a>
       </div>
@@ -79,26 +180,6 @@
   <!-- ===== メインコンテンツ ===== -->
   <main id="ordersContainer" class="container" role="main" 
         aria-label="座席別注文一覧">
-    <!-- ローディング表示 -->
-    <div id="loadingState" class="loading-state" hidden aria-hidden="true">
-      <div class="spinner"></div>
-      <p>注文データを取得中...</p>
-    </div>
-
-    <!-- エラー表示 -->
-    <div id="errorState" class="error-state" hidden aria-live="polite">
-      <div class="error-icon">⚠️</div>
-      <p id="errorMessage">エラーが発生しました</p>
-      <button id="retryBtn" class="btn-primary" type="button">
-        再試行
-      </button>
-    </div>
-
-    <!-- 空状態表示 -->
-    <div id="emptyState" class="empty-state" hidden aria-live="polite">
-      <div class="empty-icon">✨</div>
-      <p>注文はありません</p>
-    </div>
 
     <!-- 座席グループのコンテナ（動的に生成） -->
     <div id="seatGroupsContainer" class="seat-groups-list">
@@ -153,9 +234,238 @@
          aria-label="ショートカットキー受け取り用（表示されません）" />
 
   <!-- ===== JavaScript ===== -->
-  <script src="../shared-state.js"></script>
-  <script src="staff-state.js"></script>
-  <script src="staff-api.js"></script>
-  <script src="staff_orders.js"></script>
+  <script src="../Customer/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const container = document.getElementById('seatGroupsContainer');
+      const seatGroupTpl = document.getElementById('seatGroupTemplate');
+      const orderItemTpl = document.getElementById('orderItemTemplate');
+      const productItemTpl = document.getElementById('productItemTemplate');
+      const orderSummary = document.getElementById('orderSummary');
+      const syncStatus = document.getElementById('syncStatus');
+      const refreshBtn = document.getElementById('refreshBtn');
+
+      // 1. メニュー情報の取得 (商品名と価格を表示するため)
+      let menuMap = {};
+      try {
+        if (typeof API !== 'undefined' && API.getMenuItems) {
+          const items = await API.getMenuItems();
+          items.forEach(item => {
+            menuMap[item.id] = item;
+          });
+        }
+      } catch (e) {
+        console.warn('Menu items could not be loaded.', e);
+      }
+
+      // メニュー情報がない場合のフォールバック
+      const fallbackMenu = {
+        'm01': { name: 'ねぎま', price: 280 },
+        'm02': { name: 'つくね', price: 280 },
+        'm03': { name: 'ぼんじり', price: 320 },
+        'm04': { name: '唐揚げ', price: 590 },
+        'm05': { name: 'チーズ唐揚げ', price: 650 },
+        'm06': { name: 'ただの唐揚げ', price: 520 },
+        'm07': { name: '枝豆', price: 390 },
+        'm08': { name: 'ポテトサラダ', price: 420 },
+        'm09': { name: 'イカ塩辛', price: 480 },
+        'm10': { name: '牛タン塩焼き', price: 880 },
+        'm11': { name: '焼鳥盛合わせ', price: 720 },
+        'm12': { name: 'お絞り', price: 0 },
+        'm13': { name: '取り皿', price: 0 }e: 550 },
+        'm15': { name: 'ハイボール', price: 450 },
+        'm16': { name: 'レモンサワー', price: 450 },
+        'm17': { name: '梅酒', price: 480 },
+        'm18': { name: '焼酎(麦)', price: 450 },
+        'm19': { name: '日本酒', price: 500 },
+        'm20': { name: 'コーラ', price: 300 },
+        'm21': { name: 'ジンジャーエール', price: 300 },
+        'm22': { name: 'カルピス', price: 300 },
+        'm23': { name: 'オレンジジュース', price: 300 },
+        'm24': { name: 'リンゴジュース', price: 300 }
+      };
+
+      function getMenuInfo(id) {
+        return menuMap[id] || fallbackMenu[id] || { name: id, price: 0 };
+      }
+
+      // 2. ローカルストレージから全テーブルの注文を取得
+      function loadAllOrders() {
+        const allOrders = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key.startsWith('orders_')) {
+            const seatId = key.replace('orders_', '');
+            try {
+              const orders = JSON.parse(localStorage.getItem(key));
+              if (Array.isArray(orders)) {
+                allOrders.push({ seatId, orders });
+              }
+            } catch (e) {
+              console.error('Error parsing orders for', seatId, e);
+            }
+          }
+        }
+        // 座席番号順にソート
+        return allOrders.sort((a, b) => a.seatId.localeCompare(b.seatId));
+      }
+
+      // 3. 配膳ステータスの切り替え処理
+      function toggleDeliveryStatus(seatId, orderTs, orderId, callback) {
+        const key = `orders_${seatId}`;
+        try {
+          const orders = JSON.parse(localStorage.getItem(key)) || [];
+          const target = orders.find(o => o.ts == orderTs && o.id == orderId);
+          if (target) {
+            target.delivered = !target.delivered; // ステータス反転
+            localStorage.setItem(key, JSON.stringify(orders));
+            if (callback) callback();
+          }
+        } catch(e) {
+          console.error(e);
+        }
+      }
+
+      // 4. 描画処理
+      function render() {
+        container.innerHTML = '';
+        const seatOrders = loadAllOrders();
+        
+        let totalOrderCount = 0;
+        let totalPendingCount = 0;
+
+        seatOrders.forEach(({ seatId, orders }) => {
+          if (orders.length === 0) return;
+          
+          const seatPending = orders.filter(o => !o.delivered).length;
+          totalOrderCount += orders.length;
+          totalPendingCount += seatPending;
+
+          // 座席グループの外枠
+          const seatGroupNode = seatGroupTpl.content.cloneNode(true);
+          const section = seatGroupNode.querySelector('.seat-group');
+          
+          // ヘッダー情報
+          const header = document.createElement('div');
+          header.className = 'seat-group__header';
+          header.innerHTML = `
+            <div class="seat-group__title">
+              <span class="seat-id">${seatId}</span>
+              <span class="order-count">${orders.length}件</span>
+            </div>
+            <div class="seat-group__status">
+              ${seatPending > 0 
+                ? `<span class="undelivered-badge">未配膳 ${seatPending}</span>` 
+                : '<span style="color:#10b981; font-weight:bold; font-size:13px;">配膳完了 ✓</span>'}
+            </div>
+          `;
+          section.appendChild(header);
+
+          // 注文リストのコンテナ
+          const ordersContainer = document.createElement('div');
+          ordersContainer.className = 'seat-group__orders';
+          
+          // 注文が新しい順になるように反転
+          const sortedOrders = [...orders].reverse();
+
+          sortedOrders.forEach(order => {
+            const orderNode = orderItemTpl.content.cloneNode(true);
+            const article = orderNode.querySelector('.order-item');
+            
+            const orderTs = order.timestamp || order.ts || Date.now();
+            const timeString = new Date(orderTs).toLocaleTimeString('ja-JP');
+            
+            // 注文ヘッダー
+            const orderHeader = document.createElement('div');
+            orderHeader.className = 'order-item__header';
+            orderHeader.innerHTML = `
+              <span class="order-number" style="font-weight:bold; color:#ff7f32;">注文番号: ${order.id || '---'}</span>
+              <span class="order-time">${timeString}</span>
+            `;
+            article.appendChild(orderHeader);
+
+            // 商品リスト
+            const productList = document.createElement('div');
+            productList.className = 'order-item__products';
+
+            if (order.items && typeof order.items === 'object') {
+              Object.entries(order.items).forEach(([itemId, qty]) => {
+                const itemInfo = getMenuInfo(itemId);
+                const pNode = productItemTpl.content.cloneNode(true);
+                const li = pNode.querySelector('.product-item');
+                
+                li.innerHTML = `
+                  <div class="product-info" style="flex:1;">
+                    <span class="product-name" style="${order.delivered ? 'text-decoration: line-through; color: #999;' : ''}">${itemInfo.name}</span>
+                    <span class="product-quantity">× ${qty}</span>
+                  </div>
+                `;
+                productList.appendChild(li);
+              });
+            } else if (order.name) {
+              // 古い形式の互換性維持
+              const pNode = productItemTpl.content.cloneNode(true);
+              const li = pNode.querySelector('.product-item');
+              li.innerHTML = `
+                <div class="product-info" style="flex:1;">
+                  <span class="product-name" style="${order.delivered ? 'text-decoration: line-through; color: #999;' : ''}">${order.name}</span>
+                  <span class="product-quantity">× ${order.qty || 1}</span>
+                </div>
+              `;
+              productList.appendChild(li);
+            }
+            article.appendChild(productList);
+            
+            // アクションボタン
+            const actionDiv = document.createElement('div');
+            actionDiv.style.marginTop = '12px';
+            actionDiv.style.textAlign = 'right';
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = order.delivered ? 'btn-secondary' : 'btn-primary';
+            toggleBtn.textContent = order.delivered ? '未配膳に戻す' : '配膳済みにする ✓';
+            toggleBtn.onclick = () => {
+              toggleDeliveryStatus(seatId, order.ts, order.id, render);
+            };
+            
+            actionDiv.appendChild(toggleBtn);
+            article.appendChild(actionDiv);
+
+            ordersContainer.appendChild(article);
+          });
+          
+          section.appendChild(ordersContainer);
+          container.appendChild(section);
+        });
+
+        // 注文が1件もない場合
+        if (container.children.length === 0) {
+          container.innerHTML = `
+            <div style="text-align:center; padding:40px 20px; color:#6b7280;">
+              <div style="font-size:32px; margin-bottom:12px;">📋</div>
+              <p>現在、注文はありません。</p>
+            </div>
+          `;
+        }
+
+        // サマリーの更新
+        if (orderSummary) orderSummary.textContent = `全注文: ${totalOrderCount}件 (未配膳: ${totalPendingCount}件)`;
+        if (syncStatus) syncStatus.innerHTML = `<span class="sync-indicator" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px;"></span> 最終更新: ${new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
+      }
+
+      // 初期レンダリング実行
+      render();
+
+      // 更新ボタンの挙動
+      if (refreshBtn) refreshBtn.addEventListener('click', render);
+
+      // 他の画面（お客様画面）で注文が追加されたら自動的に更新する
+      window.addEventListener('storage', (e) => {
+        if (e.key && e.key.startsWith('orders_')) {
+          render();
+        }
+      });
+    });
+  </script>
 </body>
 </html>

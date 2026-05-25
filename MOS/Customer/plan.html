@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="ご利用プランの選択">
+  <meta name="theme-color" content="#ff7f32">
+  <title>プランの選択 - みどり亭</title>
+  <link rel="stylesheet" href="top_menu.css">
+  <style>
+    .plan-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 400px;
+      margin: 24px auto;
+    }
+    .plan-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .plan-card:hover, .plan-card.selected {
+      border-color: #f08204;
+      background: #fffcf8;
+      box-shadow: 0 4px 12px rgba(240, 130, 4, 0.15);
+    }
+    .plan-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+    .plan-price {
+      font-size: 18px;
+      color: #f08204;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .plan-desc {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .btn-start {
+      background: #10b981;
+      color: white;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      width: 100%;
+      cursor: pointer;
+      margin-top: 24px;
+      transition: opacity 0.2s;
+    }
+    .btn-start:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <h1 style="margin:0; font-size: 20px;">みどり亭</h1>
+    </div>
+  </header>
+  <main class="container">
+    <h2 style="text-align: center; margin-top: 24px;">ご利用プランをお選びください</h2>
+    <div class="plan-container">
+        <div class="plan-card" data-plan="nomihodai" role="button" tabindex="0">
+        <div class="plan-title">飲み放題プラン</div>
+        <div class="plan-price">1,000,000,000,000,000,000円/人</div>
+      </div>
+      <div class="plan-card" data-plan="normal" role="button" tabindex="0">
+        <div class="plan-title">通常プラン</div>
+        <div class="plan-price"></div>
+      </div>
+      <button type="button" id="btnStart" class="btn-start" disabled>注文を始める</button>
+    </div>
+  </main>
+  <script>
+    let selectedPlan = null;
+    const cards = document.querySelectorAll('.plan-card');
+    const btnStart = document.getElementById('btnStart');
+
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        cards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedPlan = card.dataset.plan;
+        btnStart.disabled = false;
+      });
+    });
+
+    btnStart.addEventListener('click', () => {
+      if (selectedPlan) {
+        localStorage.setItem('selectedPlan', selectedPlan);
+        // プラン選択後、トップメニューへ遷移
+        window.location.href = 'top_menu.html';
+      }
+    });
+  </script>
+</body>
+</html>

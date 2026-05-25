@@ -207,6 +207,8 @@
           let itemName = itemId;
           let itemPrice = 0;
           
+          // 飲み放題の判定
+          const isNomihodai = localStorage.getItem('selectedPlan') === 'nomihodai';
           // item名の簡易マッピング（order_history.jsでAPI呼び出しせず、predefのマッピングデータを使用）
           const menuMap = {
             'm01': { name: 'ねぎま', price: 280 },
@@ -221,7 +223,18 @@
             'm10': { name: '牛タン塩焼き', price: 880 },
             'm11': { name: '焼鳥盛合わせ', price: 720 },
             'm12': { name: 'お絞り', price: 0 },
-            'm13': { name: '取り皿', price: 0 }
+            'm13': { name: '取り皿', price: 0 },
+            'm14': { name: 'プレミアム・モルツ', price: isNomihodai ? 0 : 550 },
+            'm15': { name: 'ハイボール', price: isNomihodai ? 0 : 450 },
+            'm16': { name: 'レモンサワー', price: isNomihodai ? 0 : 450 },
+            'm17': { name: '梅酒', price: isNomihodai ? 0 : 480 },
+            'm18': { name: '焼酎(麦)', price: isNomihodai ? 0 : 450 },
+            'm19': { name: '日本酒', price: isNomihodai ? 0 : 500 },
+            'm20': { name: 'コーラ', price: isNomihodai ? 0 : 300 },
+            'm21': { name: 'ジンジャーエール', price: isNomihodai ? 0 : 300 },
+            'm22': { name: 'カルピス', price: isNomihodai ? 0 : 300 },
+            'm23': { name: 'オレンジジュース', price: isNomihodai ? 0 : 300 },
+            'm24': { name: 'リンゴジュース', price: isNomihodai ? 0 : 300 }
           };
           
           if (menuMap[itemId]) {

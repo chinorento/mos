@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="ご利用人数の確認">
+  <meta name="theme-color" content="#ff7f32">
+  <title>ご利用人数の確認 - みどり亭</title>
+  <link rel="stylesheet" href="top_menu.css">
+  <style>
+    .form-container {
+      background: white;
+      padding: 32px 24px;
+      border-radius: 12px;
+      margin: 40px auto;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .stepper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      margin: 32px 0;
+    }
+    .stepper button {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      font-size: 28px;
+      border: none;
+      background: #f08204;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(240, 130, 4, 0.3);
+    }
+    .stepper button:active {
+      transform: scale(0.95);
+    }
+    .stepper span {
+      font-size: 40px;
+      font-weight: bold;
+      width: 60px;
+      color: #333;
+    }
+    .btn-next {
+      background: #10b981;
+      color: white;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      width: 100%;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <h1 style="margin:0; font-size: 20px;">みどり亭</h1>
+    </div>
+  </header>
+  <main class="container">
+    <div class="form-container">
+      <h2>ご利用人数をお知らせください</h2>
+      <div class="stepper">
+        <button type="button" id="btnMinus" aria-label="人数を減らす">－</button>
+        <span id="peopleCount" aria-live="polite">2</span>
+        <button type="button" id="btnPlus" aria-label="人数を増やす">＋</button>
+      </div>
+      <p style="margin-bottom: 32px; color: #666; font-size: 16px;">名様でよろしいでしょうか？</p>
+      <button type="button" id="btnNext" class="btn-next">次へ（プラン選択）</button>
+    </div>
+  </main>
+  <script>
+    let count = 2;
+    const countEl = document.getElementById('peopleCount');
+    
+    document.getElementById('btnMinus').addEventListener('click', () => {
+      if (count > 1) { 
+        count--; 
+        countEl.textContent = count; 
+      }
+    });
+    
+    document.getElementById('btnPlus').addEventListener('click', () => {
+      if (count < 30) { 
+        count++; 
+        countEl.textContent = count; 
+      }
+    });
+    
+    document.getElementById('btnNext').addEventListener('click', () => {
+      localStorage.setItem('peopleCount', count);
+      window.location.href = 'plan.html';
+    });
+  </script>
+</body>
+</html>
