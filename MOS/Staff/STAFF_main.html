@@ -109,7 +109,10 @@
 <div id="callNotificationContainer" class="call-notification-container" role="region" aria-live="polite" aria-label="スタッフ呼び出し通知">
   <!-- ヘッダー：統計情報 -->
   <div class="call-notification__header">
-    <h2 class="call-notification__title">スタッフ呼び出し</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="call-notification__title">スタッフ呼び出し</h2>
+      <button id="toggleCallNotificationBtn" class="call-notification__toggle-btn" type="button">縮小 ▲</button>
+    </div>
     <div class="call-notification__stats" role="status" aria-live="assertive">
       <span class="stat-item">
         <span class="stat-label">未対応:</span>
@@ -337,6 +340,22 @@
   margin: 0;
   font-size: var(--font-size-lg);
   font-weight: 700;
+  color: var(--color-text);
+}
+
+.call-notification__toggle-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+.call-notification__toggle-btn:hover {
+  background: var(--color-background);
   color: var(--color-text);
 }
 
@@ -1167,6 +1186,32 @@ const StaffCallNotificationComponent = (() => {
   }
 
   /**
+   * 縮小/展開の切り替え
+   */
+  function setupCollapseToggle() {
+    const toggleBtn = document.getElementById('toggleCallNotificationBtn');
+    const filters = document.querySelector('.call-notification__filters');
+    const callList = document.getElementById('callList');
+
+    if (!toggleBtn || !filters || !callList) return;
+
+    const isCollapsed = localStorage.getItem('callNotificationCollapsed') === 'true';
+    if (isCollapsed) {
+      filters.style.display = 'none';
+      callList.style.display = 'none';
+      toggleBtn.textContent = '展開 ▼';
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      const currentlyCollapsed = filters.style.display === 'none';
+      filters.style.display = currentlyCollapsed ? '' : 'none';
+      callList.style.display = currentlyCollapsed ? '' : 'none';
+      toggleBtn.textContent = currentlyCollapsed ? '縮小 ▲' : '展開 ▼';
+      localStorage.setItem('callNotificationCollapsed', !currentlyCollapsed);
+    });
+  }
+
+  /**
    * 初期化
    */
   function init() {
@@ -1176,6 +1221,9 @@ const StaffCallNotificationComponent = (() => {
 
     // フィルタタブをセットアップ
     setupFilterTabs();
+    
+    // 縮小/展開切り替えをセットアップ
+    setupCollapseToggle();
 
     // ストレージから初期データロード
     loadFromStorage();

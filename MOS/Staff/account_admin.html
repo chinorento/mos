@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アカウント管理 - みどり亭スタッフシステム</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      color: #333;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #f08204 0%, #f08204 100%);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 32px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border-top: 4px solid #f08204;
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 18px;
+      color: #1f2937;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 12px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .btn-primary {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: bold;
+      color: #4b5563;
+    }
+    .role-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .role-admin { background: #fee2e2; color: #b91c1c; }
+    .role-staff { background: #d1fae5; color: #047857; }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 style="margin:0; font-size:20px;">アカウント管理（管理者専用）</h1>
+    <a href="STAFF_main.html" class="header-btn">ダッシュボードへ戻る</a>
+  </header>
+
+  <main class="container">
+    <!-- スタッフ追加フォーム -->
+    <div class="card">
+      <h2>新規スタッフの追加</h2>
+      <form id="addAccountForm">
+        <div class="form-group">
+          <label for="staffId">スタッフID (ログインに使用します)</label>
+          <input type="text" id="staffId" placeholder="例: staff02" required>
+        </div>
+        <div class="form-group">
+          <label for="staffName">スタッフ名（表示名）</label>
+          <input type="text" id="staffName" placeholder="例: 山田 太郎" required>
+        </div>
+        <div class="form-group">
+          <label for="staffPassword">パスワード</label>
+          <input type="password" id="staffPassword" placeholder="ログイン用パスワード" required>
+        </div>
+        <div class="form-group">
+          <label for="staffRole">権限設定</label>
+          <select id="staffRole" required>
+            <option value="staff">一般スタッフ（注文・配膳のみ）</option>
+            <option value="admin">管理者（全機能・アカウント管理）</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary">スタッフを追加する</button>
+      </form>
+    </div>
+
+    <!-- 登録済みスタッフ一覧 -->
+    <div class="card">
+      <h2>登録済みスタッフ一覧</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>スタッフID</th>
+            <th>名前</th>
+            <th>権限</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="accountTableBody">
+          <!-- JSで動的に表示 -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    // ==========================================
+    // 1. アクセス権限のチェック
+    // ==========================================
+    const inputPassword = prompt('管理者パスワードを入力してください:');
+    
+    if (inputPassword !== 'password') {
+      alert('【アクセス拒否】\nパスワードが間違っています。');
+      window.location.href = 'STAFF_main.html';
+    }
+
+    // ==========================================
+    // 2. スタッフデータの管理・表示
+    // ==========================================
+    // 初期データ（何も保存されていない場合）
+    const defaultAccounts = [
+      { id: 'admin', name: 'システム管理者', role: 'admin', password: 'password' },
+      { id: 'staff01', name: 'テストスタッフ', role: 'staff', password: 'password' }
+    ];
+    
+    let accounts = JSON.parse(localStorage.getItem('staffAccounts')) || defaultAccounts;
+
+    function saveAccounts() {
+      localStorage.setItem('staffAccounts', JSON.stringify(accounts));
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('accountTableBody');
+      tbody.innerHTML = '';
+      
+      accounts.forEach((acc, index) => {
+        const tr = document.createElement('tr');
+        const roleText = acc.role === 'admin' ? '管理者' : '一般スタッフ';
+        const roleClass = acc.role === 'admin' ? 'role-admin' : 'role-staff';
+        
+        // adminアカウントは削除できないようにする
+        const deleteBtn = acc.id !== 'admin' 
+          ? `<button class="btn-danger" onclick="deleteAccount(${index})">削除</button>` 
+          : '<span style="color:#9ca3af; font-size:12px;">削除不可</span>';
+
+        tr.innerHTML = `
+          <td><strong>${acc.id}</strong></td>
+          <td>${acc.name}</td>
+          <td><span class="role-badge ${roleClass}">${roleText}</span></td>
+          <td>${deleteBtn}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ==========================================
+    // 3. スタッフの追加・削除処理
+    // ==========================================
+    document.getElementById('addAccountForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const id = document.getElementById('staffId').value.trim();
+      const name = document.getElementById('staffName').value.trim();
+      const password = document.getElementById('staffPassword').value.trim();
+      const role = document.getElementById('staffRole').value;
+
+      // IDの重複チェック
+      if (accounts.find(a => a.id === id)) {
+        alert('エラー：この「スタッフID」はすでに登録されています。別のIDを指定してください。');
+        return;
+      }
+
+      accounts.push({ id, name, role, password });
+      saveAccounts();
+      renderTable();
+      
+      this.reset();
+      alert(`スタッフ「${name}」を追加しました。`);
+    });
+
+    window.deleteAccount = function(index) {
+      const acc = accounts[index];
+      if (confirm(`スタッフ「${acc.name} (${acc.id})」を削除してもよろしいですか？\n※この操作は取り消せません。`)) {
+        accounts.splice(index, 1);
+        saveAccounts();
+        renderTable();
+      }
+    };
+
+    // 画面ロード時に一覧を描画
+    renderTable();
+  </script>
+</body>
+</html>
