@@ -13,9 +13,19 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+    $seatNo = $_GET['seat_no'] ?? $_GET['seat'] ?? '';
+
     // クエリ実行
-    $stmt = $pdo->prepare("SELECT `id`, `席番`, `日時`, `注文内容`, `個数, `金額`, `配膳フラグ`, `削除フラグ` 
-                            FROM `order_history` WHERE `削除フラグ` = 0 ");
+    $sql = "SELECT `id`, `席番`, `日時`, `注文内容`, `個数`, `金額`, `配膳フラグ`, `削除フラグ` 
+            FROM `order_history` WHERE `削除フラグ` = 0";
+    if ($seatNo !== '') {
+        $sql .= " AND REPLACE(REPLACE(UPPER(TRIM(`席番`)), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(:seat_no)), ' ', ''), '-', '')";
+    }
+
+    $stmt = $pdo->prepare($sql);
+    if ($seatNo !== '') {
+        $stmt->bindValue(':seat_no', $seatNo);
+    }
     $stmt->execute();
 
     // 結果を取得

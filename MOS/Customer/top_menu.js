@@ -49,6 +49,7 @@ const state = {
   notifiedLO: false,
   lastCallTs: 0,
   callInProgress: false,
+  lastFocusedElement: null,
   timers: {
     clock: null,
     loUpdate: null
@@ -371,7 +372,7 @@ function getRemainingCooldownSeconds() {
 }
 
 async function confirmCall() {
-  const seatId = state.seatId || localStorage.getItem('seatId');
+  const seatId = state.seatId || (window.AppState && AppState.seatId) || localStorage.getItem('seatId');
   if (!seatId) {
     showToast('席IDを取得できませんでした');
     return;
@@ -387,6 +388,7 @@ async function confirmCall() {
   };
 
   try {
+    await saveStaffCallToDb(call);
     saveStaffCall(call);
     broadcastStaffCall(call);
     state.lastCallTs = Date.now();
@@ -423,6 +425,52 @@ function saveStaffCall(call) {
   const queue = getStaffCallQueue();
   queue.push(call);
   saveStaffCallQueue(queue);
+}
+
+async function saveStaffCallToDb(call) {
+  const endpoint = '/mos-main/MOS/Customer/insert_staffcall.php';
+  const payload = new URLSearchParams({
+      id: call.id,
+      seat_no: call.seatId,
+      datetime: call.createdAt,
+      complete_flag: '0',
+    });
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: payload,
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+
+    const responseText = await response.text();
+    let data = null;
+
+    try {
+      data = responseText ? JSON.parse(responseText) : null;
+    } catch (parseError) {
+      throw new Error(responseText || `HTTP ${response.status}`);
+    }
+
+    if (!response.ok || !data || !data.success) {
+      throw new Error(data?.error || responseText || `HTTP ${response.status}`);
+    }
+
+    return data;
+  } catch (error) {
+    if (navigator.sendBeacon) {
+      const beaconSent = navigator.sendBeacon(endpoint, payload);
+      if (beaconSent) {
+        return { success: true, message: 'スタッフ呼び出しを送信しました' };
+      }
+    }
+
+    throw error;
+  }
 }
 
 function broadcastStaffCall(call) {
@@ -513,6 +561,12 @@ function showModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
+  state.lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  if ('inert' in modal) {
+    modal.inert = false;
+  }
+
   modal.hidden = false;
   modal.setAttribute('aria-hidden', 'false');
   
@@ -528,29 +582,29 @@ function hideModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
-  const activeElement = document.activeElement;
-  if (activeElement && modal.contains(activeElement)) {
-    if (typeof activeElement.blur === 'function') {
-      activeElement.blur();
-    }
+  const fallbackTarget = state.lastFocusedElement
+    && document.contains(state.lastFocusedElement)
+    && !modal.contains(state.lastFocusedElement)
+    ? state.lastFocusedElement
+    : document.querySelector('main') || document.body;
 
-    const fallbackTarget = document.querySelector('main');
-    if (fallbackTarget && typeof fallbackTarget.focus === 'function') {
-      fallbackTarget.focus();
-    } else {
-      const prevTabIndex = document.body.getAttribute('tabindex');
-      document.body.setAttribute('tabindex', '-1');
-      document.body.focus();
-      if (prevTabIndex === null) {
-        document.body.removeAttribute('tabindex');
-      } else {
-        document.body.setAttribute('tabindex', prevTabIndex);
-      }
+  if (fallbackTarget && typeof fallbackTarget.focus === 'function') {
+    const prevTabIndex = fallbackTarget.getAttribute ? fallbackTarget.getAttribute('tabindex') : null;
+    if (fallbackTarget === document.body && prevTabIndex === null) {
+      fallbackTarget.setAttribute('tabindex', '-1');
+    }
+    fallbackTarget.focus({ preventScroll: true });
+    if (fallbackTarget === document.body && prevTabIndex === null) {
+      fallbackTarget.removeAttribute('tabindex');
     }
   }
 
+  if ('inert' in modal) {
+    modal.inert = true;
+  }
   modal.hidden = true;
   modal.setAttribute('aria-hidden', 'true');
+  state.lastFocusedElement = null;
   
   // 背景スクロール復帰
   document.body.style.overflow = '';

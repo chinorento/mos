@@ -18,11 +18,34 @@
     return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
+  function getCurrentSeatId(){
+    const candidates = [
+      typeof AppState !== 'undefined' ? AppState.seatId : null,
+      localStorage.getItem('seatId'),
+      'C-01'
+    ];
+
+    for (const candidate of candidates) {
+      const normalized = normalizeSeatId(candidate);
+      if (normalized) return normalized;
+    }
+
+    return null;
+  }
+
+  function sameSeat(a, b){
+    return normalizeSeatId(a) === normalizeSeatId(b);
+  }
+
   // 状態
-  let seatId = normalizeSeatId(localStorage.getItem('seatId') || 'C-01');
+  let seatId = getCurrentSeatId();
   let orders = [];
   let currentFilter = 'all'; // all | pending | delivered
   const ordersKey = () => `orders_${seatId || 'unknown'}`;
+
+  // メニューマップ（gwt_menu.php から取得）
+  let menuMap = {};
+  let menuFetched = false;
 
   // DOM
   const elSeatLabel = qs('seatLabel');
@@ -33,6 +56,7 @@
 
   // 初期化
   function init(){
+    seatId = getCurrentSeatId();
     updateSeatLabel();
     loadOrders();
     bindEvents();
@@ -50,6 +74,11 @@
         console.warn('Menu load failed:', e);
       });
     }
+
+    // gwt_menu.php からメニューを取得して menuMap を構築
+    if (window.fetch) {
+      fetchMenuMap().catch(e => console.warn('fetchMenuMap failed', e));
+    }
     
     if (typeof startClock === 'function') {
       try { startClock(); } catch(e){ /* ignore */ }
@@ -65,12 +94,17 @@
 
   async function fetchOrdersFromServer(){
     try {
-      const res = await fetch('fetch_order_history.php');
+      seatId = getCurrentSeatId();
+      if (!seatId) return;
+      const seat = seatId || '';
+      const res = await fetch(`fetch_order_history.php?seat_no=${encodeURIComponent(seat)}`);
       if (!res.ok) throw new Error('fetch failed');
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) return;
       // 正規化して内部 orders 配列へセット
-      orders = data.map(normalizeServerOrder);
+      orders = data
+        .filter(raw => sameSeat(raw.席番 || raw.seat_no || raw.seat || raw.name, seat))
+        .map(normalizeServerOrder);
       // キャッシュして表示
       saveOrders();
       render();
@@ -98,7 +132,7 @@
       o.name = raw.name;
     }
     o.total = raw.total || raw.金額 || raw.price || 0;
-    o.qty = raw.数量 || raw.qty || 1;
+    o.qty = raw.個数 || raw.数量 || raw.qty || 1;
     o.delivered = Boolean(raw.配膳フラグ || raw.delivered);
     o.delivered = o.delivered === true || o.delivered === 1 || o.delivered === '1' || o.delivered === 'true';
     return o;
@@ -110,6 +144,11 @@
 
   function loadOrders(){
     try {
+      seatId = getCurrentSeatId();
+      if (!seatId) {
+        orders = [];
+        return;
+      }
       const raw = localStorage.getItem(ordersKey());
       orders = raw ? JSON.parse(raw) : [];
     } catch(e){
@@ -166,6 +205,10 @@
     if (!elOrdersList) return;
     elOrdersList.innerHTML = '';
     const list = filteredOrders();
+
+    // NOTE: menuMap は fetchMenuMap() により構築されます。取得失敗時は空のままにして
+    // itemId をそのまま表示するフォールバックになります。
+
     if (list.length === 0){
       elOrdersList.innerHTML = '<div class="no-results">注文履歴がありません</div>';
       return;
@@ -210,32 +253,32 @@
           // 飲み放題の判定
           const isNomihodai = localStorage.getItem('selectedPlan') === 'nomihodai';
           // item名の簡易マッピング（order_history.jsでAPI呼び出しせず、predefのマッピングデータを使用）
-          const menuMap = {
-            'm01': { name: 'ねぎま', price: 280 },
-            'm02': { name: 'つくね', price: 280 },
-            'm03': { name: 'ぼんじり', price: 320 },
-            'm04': { name: '唐揚げ', price: 590 },
-            'm05': { name: 'チーズ唐揚げ', price: 650 },
-            'm06': { name: 'ただの唐揚げ', price: 520 },
-            'm07': { name: '枝豆', price: 390 },
-            'm08': { name: 'ポテトサラダ', price: 420 },
-            'm09': { name: 'イカ塩辛', price: 480 },
-            'm10': { name: '牛タン塩焼き', price: 880 },
-            'm11': { name: '焼鳥盛合わせ', price: 720 },
-            'm12': { name: 'お絞り', price: 0 },
-            'm13': { name: '取り皿', price: 0 },
-            'm14': { name: 'プレミアム・モルツ', price: isNomihodai ? 0 : 550 },
-            'm15': { name: 'ハイボール', price: isNomihodai ? 0 : 450 },
-            'm16': { name: 'レモンサワー', price: isNomihodai ? 0 : 450 },
-            'm17': { name: '梅酒', price: isNomihodai ? 0 : 480 },
-            'm18': { name: '焼酎(麦)', price: isNomihodai ? 0 : 450 },
-            'm19': { name: '日本酒', price: isNomihodai ? 0 : 500 },
-            'm20': { name: 'コーラ', price: isNomihodai ? 0 : 300 },
-            'm21': { name: 'ジンジャーエール', price: isNomihodai ? 0 : 300 },
-            'm22': { name: 'カルピス', price: isNomihodai ? 0 : 300 },
-            'm23': { name: 'オレンジジュース', price: isNomihodai ? 0 : 300 },
-            'm24': { name: 'リンゴジュース', price: isNomihodai ? 0 : 300 }
-          };
+          // const menuMap = {
+          //   'm01': { name: 'ねぎま', price: 280 },
+          //   'm02': { name: 'つくね', price: 280 },
+          //   'm03': { name: 'ぼんじり', price: 320 },
+          //   'm04': { name: '唐揚げ', price: 590 },
+          //   'm05': { name: 'チーズ唐揚げ', price: 650 },
+          //   'm06': { name: 'ただの唐揚げ', price: 520 },
+          //   'm07': { name: '枝豆', price: 390 },
+          //   'm08': { name: 'ポテトサラダ', price: 420 },
+          //   'm09': { name: 'イカ塩辛', price: 480 },
+          //   'm10': { name: '牛タン塩焼き', price: 880 },
+          //   'm11': { name: '焼鳥盛合わせ', price: 720 },
+          //   'm12': { name: 'お絞り', price: 0 },
+          //   'm13': { name: '取り皿', price: 0 },
+          //   'm14': { name: 'プレミアム・モルツ', price: isNomihodai ? 0 : 550 },
+          //   'm15': { name: 'ハイボール', price: isNomihodai ? 0 : 450 },
+          //   'm16': { name: 'レモンサワー', price: isNomihodai ? 0 : 450 },
+          //   'm17': { name: '梅酒', price: isNomihodai ? 0 : 480 },
+          //   'm18': { name: '焼酎(麦)', price: isNomihodai ? 0 : 450 },
+          //   'm19': { name: '日本酒', price: isNomihodai ? 0 : 500 },
+          //   'm20': { name: 'コーラ', price: isNomihodai ? 0 : 300 },
+          //   'm21': { name: 'ジンジャーエール', price: isNomihodai ? 0 : 300 },
+          //   'm22': { name: 'カルピス', price: isNomihodai ? 0 : 300 },
+          //   'm23': { name: 'オレンジジュース', price: isNomihodai ? 0 : 300 },
+          //   'm24': { name: 'リンゴジュース', price: isNomihodai ? 0 : 300 }
+          // };
           
           if (menuMap[itemId]) {
             itemName = menuMap[itemId].name;
@@ -271,9 +314,10 @@
           lines.forEach(line => {
             const itemRow = document.createElement('div');
             itemRow.style.cssText = 'display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px;';
+            const qtyText = Number(order.qty || 0) > 1 ? ` ×${order.qty}` : (Number(order.qty || 0) === 1 ? ' ×1' : '');
             itemRow.innerHTML = `
               <span>${escapeHtml(line)}</span>
-              <span style="text-align: right;"></span>
+              <span style="text-align: right;">${escapeHtml(qtyText)}</span>
             `;
             itemsContainer.appendChild(itemRow);
           });
@@ -367,7 +411,38 @@
     render();
     if (typeof showToast === 'function') showToast('注文を削除しました');
   }
-  
+
+  // サーバーから gwt_menu.php を呼んで menuMap を構築する
+  async function fetchMenuMap(){
+    try {
+      const res = await fetch('get_menu.php');
+      if (!res.ok) throw new Error('menu fetch failed: ' + res.status);
+      const data = await res.json();
+      // data が配列なら id をキーにしたマップへ変換
+      if (Array.isArray(data)){
+        menuMap = data.reduce((m,it)=>{
+          const id = it.id || it.itemId || it.code || it.key;
+          if (!id) return m;
+          m[id] = {
+            name: it.name || it.title || it.label || id,
+            price: typeof it.price === 'number' ? it.price : (Number(it.price) || 0)
+          };
+          return m;
+        }, {});
+      } else if (data && typeof data === 'object') {
+        // 既に {id: {name,price}} の形で返ってくる場合
+        menuMap = data;
+      } else {
+        menuMap = {};
+      }
+      menuFetched = true;
+      // メニュー取得後に再描画して名称/価格を反映
+      render();
+    } catch(e){
+      console.warn('fetchMenuMap error', e);
+      // フォールバックはレンダリング時に行う
+    }
+  }
 
   // 外部デバッグ用
   window.__ordersHistory = orders;

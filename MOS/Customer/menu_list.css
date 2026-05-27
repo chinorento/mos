@@ -219,7 +219,7 @@ body {
   display: flex; 
   flex-direction: column; 
   gap: 8px;
-  min-height: 220px;
+  min-height: 150px;
   transition: all 0.2s ease;
 }
 

@@ -8,9 +8,9 @@
  */
 
 const API_CONFIG = {
-  BASE_URL: '/api',
+  BASE_URL: '/mos-main/MOS/Customer',
   TIMEOUT_MS: 5000,
-  USE_MOCK: true  // true: ダミーデータ使用、false: 実APIコール
+  USE_MOCK: false  // true: ダミーデータ使用、false: 実APIコール
 };
 
 /* ===== メニューAPI ===== */
@@ -22,10 +22,11 @@ async function getMenuItems(storeId = '001') {
         resolve(generateDummyMenuItems());
       }, 500);
     });
-  } else {
+    } else {
     try {
+      // ここでローカルの PHP エンドポイントからメニューを取得する
       const response = await fetchWithTimeout(
-        `${API_CONFIG.BASE_URL}/menu?storeId=${storeId}`,
+        `${API_CONFIG.BASE_URL}/get_menu.php?storeId=${storeId}`,
         API_CONFIG.TIMEOUT_MS
       );
       items = await response.json();
@@ -140,12 +141,16 @@ async function callStaff(seatId) {
   
   try {
     const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/call`,
+      `${API_CONFIG.BASE_URL}/insert_staffcall.php`,
       API_CONFIG.TIMEOUT_MS,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seatId })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          seat_no: seatId,
+          datetime: new Date().toISOString(),
+          complete_flag: '0'
+        })
       }
     );
     return await response.json();
@@ -316,7 +321,7 @@ async function getSoldOutItems() {
   
   try {
     const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/sold-out`,
+      `${API_CONFIG.BASE_URL}/get_sold_out.php`,
       API_CONFIG.TIMEOUT_MS
     );
     return await response.json();
