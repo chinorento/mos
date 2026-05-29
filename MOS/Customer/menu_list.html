@@ -123,7 +123,6 @@
         <p style="font-weight: bold; margin: 0 0 8px 0; font-size: 14px; text-align: center;">飲み方</p>
         <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
           <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
-            <input type="radio" name="drinkOption" value="そのまま" checked> そのまま
           </label>
           <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
             <input type="radio" name="drinkOption" value="ロック"> ロック
@@ -153,5 +152,46 @@
       </div>
     </div>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // ===== お酒の飲み方オプションの表示・選択制御 =====
+      const modalNameEl = document.getElementById('itemAddModalName');
+      const optionsEl = document.getElementById('itemAddModalOptions');
+      const confirmItemAddBtn = document.getElementById('confirmItemAdd');
+
+      if (modalNameEl && optionsEl) {
+        // 商品名の変更を監視し、対象のお酒なら飲み方オプションを表示
+        const observer = new MutationObserver(() => {
+          const productName = modalNameEl.textContent || '';
+          // 飲み方を選択可能にするキーワード
+          const drinkKeywords = ['ハイボール', 'サワー', '梅酒', '焼酎', '日本酒'];
+          
+          if (drinkKeywords.some(keyword => productName.includes(keyword))) {
+            optionsEl.style.display = 'block';
+            // ラジオボタンの選択状態をデフォルトの「そのまま」にリセット
+            const defaultRadio = optionsEl.querySelector('input[value="そのまま"]');
+            if (defaultRadio) defaultRadio.checked = true;
+          } else {
+            optionsEl.style.display = 'none';
+          }
+        });
+        
+        observer.observe(modalNameEl, { childList: true, characterData: true, subtree: true });
+      }
+
+      // カートに入れる処理の直前で、選択された飲み方を商品名に付与
+      if (confirmItemAddBtn && modalNameEl && optionsEl) {
+        confirmItemAddBtn.addEventListener('click', () => {
+          if (optionsEl.style.display === 'block') {
+            const selectedOption = document.querySelector('input[name="drinkOption"]:checked');
+            if (selectedOption && selectedOption.value !== 'そのまま') {
+              modalNameEl.textContent = `${modalNameEl.textContent}（${selectedOption.value}）`;
+            }
+          }
+        }, true); // キャプチャフェーズで登録して、既存のカート追加処理より先に実行させる
+      }
+    });
+  </script>
 </body>
 </html>
