@@ -96,7 +96,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <!-- 呼び出し完了モーダル -->
-    <div id="callResultModal" class="modal" hidden aria-hidden="true">
+    <div id="callResultModal" class="modal" hidden aria-hidden="true" inert>
       <div class="modal__backdrop"></div>
       <div
         class="modal__dialog"
@@ -118,7 +118,7 @@
     </div>
 
     <!-- 呼び出し確認モーダル -->
-    <div id="callModal" class="modal" hidden aria-hidden="true">
+    <div id="callModal" class="modal" hidden aria-hidden="true" inert>
       <div class="modal__backdrop"></div>
       <div
         class="modal__dialog"
@@ -140,7 +140,7 @@
     </div>
 
     <!-- 座席選択モーダル -->
-    <div id="seatModal" class="modal" hidden aria-hidden="true">
+    <div id="seatModal" class="modal" hidden aria-hidden="true" inert>
       <div class="modal__backdrop"></div>
       <div
         class="modal__dialog"
@@ -164,7 +164,7 @@
     </div>
 
     <!-- 会計準備中モーダル -->
-    <div id="paymentPreparingModal" class="modal" hidden aria-hidden="true">
+    <div id="paymentPreparingModal" class="modal" hidden aria-hidden="true" inert>
       <div class="modal__backdrop"></div>
       <div
         class="modal__dialog"
@@ -204,6 +204,93 @@
     <script src="shared-state.js"></script>
     <script src="api.js"></script>
     <script>
+      function focusOutsideModal(modal) {
+        const target = document.querySelector('main') || document.body;
+        if (target === document.body && !target.hasAttribute('tabindex')) {
+          target.setAttribute('tabindex', '-1');
+          target.focus({ preventScroll: true });
+          target.removeAttribute('tabindex');
+          return;
+        }
+        if (typeof target.focus === 'function') {
+          target.focus({ preventScroll: true });
+        }
+      }
+
+      function openModal(modal) {
+        if (!modal) return;
+        if ('inert' in modal) modal.inert = false;
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        const focusTarget = modal.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+          focusTarget.focus();
+        }
+      }
+
+      function closeModal(modal) {
+        if (!modal) return;
+        const activeElement = document.activeElement;
+        if (activeElement && modal.contains(activeElement) && typeof activeElement.blur === 'function') {
+          activeElement.blur();
+        }
+        focusOutsideModal(modal);
+        if ('inert' in modal) modal.inert = true;
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      async function saveStaffCallToDb(call) {
+        const endpoint = '/mos-main/MOS/Customer/insert_staffcall.php';
+        const datetime = new Date(call.createdAt);
+        const formattedDatetime = Number.isNaN(datetime.getTime())
+          ? new Date().toISOString().slice(0, 19).replace('T', ' ')
+          : datetime.toISOString().slice(0, 19).replace('T', ' ');
+
+        const payload = new URLSearchParams({
+          id: call.id,
+          seat_no: call.seatId,
+          datetime: formattedDatetime,
+          complete_flag: '0',
+        });
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: payload,
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+
+          const responseText = await response.text();
+          let data = null;
+
+          try {
+            data = responseText ? JSON.parse(responseText) : null;
+          } catch (parseError) {
+            throw new Error(responseText || `HTTP ${response.status}`);
+          }
+
+          if (!response.ok || !data || !data.success) {
+            throw new Error(data?.error || responseText || `HTTP ${response.status}`);
+          }
+
+          return data;
+        } catch (error) {
+          if (navigator.sendBeacon) {
+            const beaconSent = navigator.sendBeacon(endpoint, payload);
+            if (beaconSent) {
+              return { success: true, message: 'スタッフ呼び出しを送信しました' };
+            }
+          }
+
+          throw error;
+        }
+      }
+
       document.addEventListener("DOMContentLoaded", () => {
         const btnCall = document.getElementById("btnCall");
         const callModal = document.getElementById("callModal");
@@ -215,21 +302,13 @@
         // 呼び出し確認モーダルを開く
         if (btnCall) {
           btnCall.addEventListener("click", () => {
-            callModal.hidden = false;
-            callModal.removeAttribute("aria-hidden");
+            openModal(callModal);
           });
         }
 
         // 1. 呼び出すボタンの処理
-        confirmCallBtn.addEventListener("click", () => {
-          // モーダルを閉じる
-          callModal.hidden = true;
-          callModal.setAttribute("aria-hidden", "true");
-
-          // スタッフの画面に通知を送るため、localStorageに呼び出しデータを保存
-          const seatId = localStorage.getItem("seatId") || "未設定";
-          const calls = JSON.parse(localStorage.getItem("staffCalls") || "[]");
-          
+        confirmCallBtn.addEventListener("click", async () => {
+          const seatId = (window.AppState && AppState.seatId) || localStorage.getItem("seatId") || "未設定";
           const newCall = {
             id: "call_" + Date.now(),
             seatId: seatId,
@@ -237,25 +316,31 @@
             createdAt: new Date().toISOString(),
             reason: "お客様からの呼び出し"
           };
-          
-          calls.unshift(newCall);
-          localStorage.setItem("staffCalls", JSON.stringify(calls));
 
-          // 完了モーダルを表示
-          callResultModal.hidden = false;
-          callResultModal.removeAttribute("aria-hidden");
+          try {
+            await saveStaffCallToDb(newCall);
+
+            // ローカルにも残しておく（DB保存の補助）
+            const calls = JSON.parse(localStorage.getItem("staffCalls") || "[]");
+            calls.unshift(newCall);
+            localStorage.setItem("staffCalls", JSON.stringify(calls));
+
+            closeModal(callModal);
+            openModal(callResultModal);
+          } catch (error) {
+            console.error('スタッフ呼び出し保存失敗:', error);
+            alert('スタッフ呼び出しの保存に失敗しました。');
+          }
         });
 
         // 2. キャンセルボタン（閉じる）の処理
         cancelCallBtn.addEventListener("click", () => {
-          callModal.hidden = true;
-          callModal.setAttribute("aria-hidden", "true");
+          closeModal(callModal);
         });
 
         // 3. 完了モーダルを閉じる
         closeCallResultBtn.addEventListener("click", () => {
-          callResultModal.hidden = true;
-          callResultModal.setAttribute("aria-hidden", "true");
+          closeModal(callResultModal);
         });
       });
     </script>

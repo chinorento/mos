@@ -53,21 +53,23 @@ function saveStaffCallQueue(queue) {
 
 const api = {
   getActiveCalls: async () => {
-    const queue = getStaffCallQueue();
-    const pendingCalls = queue.filter(
-      (call) => call.status === "pending" && !call.delivered,
-    );
+    try {
+      const response = await fetch("../Customer/fetch_staff_calls.php", {
+        cache: "no-store",
+      });
 
-    if (pendingCalls.length > 0) {
-      const updatedQueue = queue.map((call) => ({
-        ...call,
-        delivered:
-          call.status === "pending" && !call.delivered ? true : call.delivered,
-      }));
-      saveStaffCallQueue(updatedQueue);
+      if (response.ok) {
+        const calls = await response.json();
+        if (Array.isArray(calls)) {
+          return calls;
+        }
+      }
+    } catch (error) {
+      console.warn("DB staff calls fetch failed, falling back to localStorage:", error);
     }
 
-    return pendingCalls;
+    const queue = getStaffCallQueue();
+    return queue.filter((call) => call.status === "pending" && !call.delivered);
   },
 };
 
@@ -143,10 +145,35 @@ const StaffCallNotificationComponent = {
     const call = this.state.calls.find((c) => c.id === callId);
     if (call) {
       call.status = newStatus;
+      if (newStatus === "completed") {
+        this.syncCallCompletion(call).catch((error) => {
+          console.error("Failed to update staff call completion:", error);
+        });
+      }
       this.updateStats();
       this.updateFilterTabs();
       this.renderCalls();
     }
+  },
+
+  async syncCallCompletion(call) {
+    const response = await fetch("../Customer/update_staffcall.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        id: call.id,
+        complete_flag: "1",
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data || !data.success) {
+      throw new Error(data?.error || `HTTP ${response.status}`);
+    }
+
+    return data;
   },
 
   removeCall(callId) {
@@ -277,9 +304,7 @@ const StaffCallNotificationComponent = {
       if (acknowledgeBtn) acknowledgeBtn.hidden = true;
       if (completeBtn) {
         completeBtn.hidden = false;
-        completeBtn.addEventListener("click", () =>
-          this.updateCallStatus(call.id, "completed"),
-        );
+        completeBtn.addEventListener("click", () => this.updateCallStatus(call.id, "completed"));
       }
       if (dismissBtn) dismissBtn.hidden = true;
     } else if (call.status === "completed") {

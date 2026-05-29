@@ -345,7 +345,9 @@ const orderManager = {
 
     const orderItems = Object.entries(AppState.cart).map(([itemId, quantity]) => {
       const item = menuState.items.find(i => i.id === itemId) || AppState.menuItems?.find(i => i.id === itemId);
-      return `${item?.name || itemId}×${quantity}`;
+      // 1行あたり: 商品名×数量@単価  の形式で送信（サーバー側で qty と price を解析して金額を算出）
+      const unitPrice = item?.price || 0;
+      return `${item?.name || itemId}×${quantity}@${unitPrice}`;
     });
 
     // 結果を確認
@@ -503,7 +505,7 @@ const uiManager = {
       ${imgHtml}
       <div class="name">${utils.escapeHtml(item.name)}</div>
       <div class="price">${priceDisplay}</div>
-      ${isSoldOut ? '<div class="soldout-badge">売切</div>' : ''}
+      
       <div class="item-actions" style="margin-top: 8px; min-height: ${MENU_CONFIG.UI.BUTTON_MIN_SIZE}"></div>
     `;
     
@@ -562,7 +564,9 @@ const uiManager = {
     if (!item) return;
 
     this.activeAddItemId = itemId;
+    this.activeAddTriggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.currentAddQuantity = 1;
+    this.activeAddUnitPrice = Number(item.price || 0);
 
     const nameEl = document.getElementById('itemAddModalName');
     const priceEl = document.getElementById('itemAddModalPrice');
@@ -570,25 +574,63 @@ const uiManager = {
     const modal = document.getElementById('itemAddModal');
 
     if (nameEl) nameEl.textContent = item.name;
-    if (priceEl) priceEl.textContent = item.price === 0 ? '¥0（無料）' : `¥${item.price}`;
     if (qtyEl) qtyEl.textContent = String(this.currentAddQuantity);
+    this.updateItemAddModalPrice();
 
     if (modal) {
       modal.hidden = false;
       modal.removeAttribute('aria-hidden');
+      modal.removeAttribute('inert');
     }
     document.body.style.overflow = 'hidden';
   },
 
   closeItemAddModal() {
     const modal = document.getElementById('itemAddModal');
+
+    if (modal && modal.contains(document.activeElement)) {
+      const focusTarget = this.activeAddTriggerEl instanceof HTMLElement && document.contains(this.activeAddTriggerEl)
+        ? this.activeAddTriggerEl
+        : document.getElementById('miniCartToggle');
+
+      if (focusTarget instanceof HTMLElement) {
+        focusTarget.focus({ preventScroll: true });
+      } else if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }
+
     if (modal) {
       modal.hidden = true;
       modal.setAttribute('aria-hidden', 'true');
+      modal.setAttribute('inert', '');
     }
     document.body.style.overflow = '';
     this.activeAddItemId = null;
     this.currentAddQuantity = 1;
+    this.activeAddUnitPrice = 0;
+    this.activeAddTriggerEl = null;
+  },
+
+  updateItemAddModalPrice() {
+    const priceEl = document.getElementById('itemAddModalPrice');
+    if (!priceEl) return;
+
+    const unitPrice = Number(this.activeAddUnitPrice || 0);
+    const quantity = Number(this.currentAddQuantity || 1);
+    const subtotal = unitPrice * quantity;
+
+    if (unitPrice === 0) {
+      priceEl.textContent = '¥0（無料）';
+      return;
+    }
+
+    if (quantity <= 1) {
+      priceEl.textContent = `¥${unitPrice.toLocaleString()}`;
+      return;
+    }
+
+    priceEl.textContent = `¥${subtotal.toLocaleString()}（¥${unitPrice.toLocaleString()} × ${quantity}）`;
   },
 
   adjustItemAddModalQuantity(delta) {
@@ -599,6 +641,7 @@ const uiManager = {
 
     const qtyEl = document.getElementById('itemAddModalQty');
     if (qtyEl) qtyEl.textContent = String(this.currentAddQuantity);
+    this.updateItemAddModalPrice();
   },
 
   confirmItemAddModal() {
@@ -919,19 +962,36 @@ const uiManager = {
     if (!details || !toggle) return;
 
     const isHidden = details.hidden;
-    details.hidden = !isHidden;
-    toggle.textContent = isHidden ? '閉じる' : '表示';
-    
-    if (!isHidden) {
+    if (isHidden) {
+      details.hidden = false;
+      details.removeAttribute('aria-hidden');
+      details.removeAttribute('inert');
+      toggle.textContent = '閉じる';
       this.renderCart();
+      return;
     }
+
+    // フォーカスが中に残ったまま aria-hidden を付けないよう、先に外へ逃がす
+    if (details.contains(document.activeElement)) {
+      toggle.focus({ preventScroll: true });
+    }
+
+    details.hidden = true;
+    details.setAttribute('aria-hidden', 'true');
+    details.setAttribute('inert', '');
+    toggle.textContent = '表示';
   },
 
   hideCartDetails() {
     const details = document.getElementById('miniCartDetails');
     const toggle = document.getElementById('miniCartToggle');
     if (details && toggle) {
+      if (details.contains(document.activeElement)) {
+        toggle.focus({ preventScroll: true });
+      }
       details.hidden = true;
+      details.setAttribute('aria-hidden', 'true');
+      details.setAttribute('inert', '');
       toggle.textContent = '表示';
     }
   },

@@ -40,8 +40,8 @@ function loadCheckoutData() {
   // カート内容表示
   renderCartItems();
 
-  // 合計金額の計算と表示
-  updateTotalAmount();
+  // 配膳済みの個数・金額をDBから取得して表示
+  fetchTotalAmount();
 
   // サーバーから座席の注文一覧を取得して表示
   fetchOrderHistoryForSeat().catch(e => console.warn('fetchOrderHistoryForSeat failed', e));
@@ -49,21 +49,20 @@ function loadCheckoutData() {
 
 async function fetchOrderHistoryForSeat(){
   try {
-    const res = await fetch('fetch_order_history.php');
+    const seat = AppState.seatId || AppState.seat || '';
+    const res = await fetch(`fetch_order_history.php?seat_no=${encodeURIComponent(seat)}`);
     if (!res.ok) throw new Error('fetch failed');
     const data = await res.json();
     if (!Array.isArray(data)) return;
 
-    // 座席でフィルタ（互換: seat_no / 席番 / name）
-    const seat = AppState.seatId || AppState.seat || '';
-    const matched = data.filter(o => {
+    // 配膳済みのみ表示
+    const deliveredOnly = data.filter(o => {
       const s = o.seat_no || o.席番 || o.name || o.seat || '';
-      return String(s).trim() === String(seat).trim();
+      const flag = o.配膳フラグ ?? o.delivered ?? o.served_flag ?? 0;
+      return String(s).trim() === String(seat).trim() && (flag === 1 || flag === '1' || flag === true || String(flag).toLowerCase() === 'true');
     });
 
-    if (matched.length === 0) return; // 表示しない
-
-    renderFetchedOrders(matched);
+    renderFetchedOrders(deliveredOnly);
   } catch (e) {
     console.error(e);
   }
@@ -71,17 +70,26 @@ async function fetchOrderHistoryForSeat(){
 
 async function fetchTotalAmount() {
   try {
-    // サーバーから合計金額を取得
-    const res = await fetch('fetch_total_amount.php');
+    // サーバーから配膳済みの個数と合計金額を取得
+    const seat = AppState.seatId || AppState.seat || '';
+    const res = await fetch(`fetch_total_amount.php?seat_no=${encodeURIComponent(seat)}`);
     if (!res.ok) throw new Error('Failed to fetch total amount');
     
     const data = await res.json();
-    if (typeof data.total !== 'number') throw new Error('Invalid total amount data');
+    if (typeof data.totalCount !== 'number' || typeof data.totalAmount !== 'number') {
+      throw new Error('Invalid total data');
+    }
 
-    // 合計金額を表示
+    // 合計金額と注文品数を表示
     const totalAmountElement = document.getElementById('totalAmount');
+    const countElement = document.getElementById('itemCountInfo');
+
     if (totalAmountElement) {
-      totalAmountElement.textContent = `¥${data.total.toLocaleString()}`;
+      totalAmountElement.textContent = `¥${data.totalAmount.toLocaleString()}`;
+    }
+
+    if (countElement) {
+      countElement.textContent = String(data.totalCount);
     }
   } catch (e) {
     console.error('Error fetching total amount:', e);
@@ -110,17 +118,28 @@ function renderFetchedOrders(orders){
     row.className = 'cart-item';
     const datetime = o.日時 || o.datetime || o.timestamp || o.ts || '';
     const content = o.注文内容 || o.order_content || o.data || '';
+    const qty = Number(o.個数 ?? o.qty ?? 0);
+    const amount = Number(o.金額 ?? o.amount ?? 0);
     const contentHtml = escapeHtml(String(content)).replace(/\r?\n/g, '<br>');
 
     row.innerHTML = `
       <div style="flex:1">
         <div style="font-size:13px;color:#666;">${escapeHtml(String(datetime))}</div>
         <div style="margin-top:6px;color:#333;">${contentHtml}</div>
+        <div style="margin-top:4px;font-size:13px;color:#666;">数量: ${qty} / 金額: ¥${amount.toLocaleString()}</div>
       </div>
     `;
 
     list.appendChild(row);
   });
+
+  if (orders.length === 0) {
+    const emptyRow = document.createElement('div');
+    emptyRow.className = 'empty-message';
+    emptyRow.style.cssText = 'padding: 12px 0; text-align: center; color: #999;';
+    emptyRow.textContent = '配膳済みの注文はありません';
+    list.appendChild(emptyRow);
+  }
 
   // 既存のカート内容の下に追加
   // If container currently shows only empty message, replace it with fetched list
@@ -170,18 +189,8 @@ function renderCartItems() {
 }
 
 function updateTotalAmount() {
-  const cartTotal = AppState.getCartTotal();
-  const totalElement = document.getElementById('totalAmount');
-  const countElement = document.getElementById('itemCountInfo');
-
-  if (totalElement) {
-    totalElement.textContent = `¥${cartTotal.toLocaleString()}`;
-  }
-
-  if (countElement) {
-    const itemCount = Object.values(AppState.cart).reduce((a, b) => a + b, 0);
-    countElement.textContent = itemCount;
-  }
+  // 互換性のために残すが、実データは fetchTotalAmount() が反映する
+  fetchTotalAmount();
 }
 
 /* ===== イベント バインディング ===== */
