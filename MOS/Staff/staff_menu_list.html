@@ -128,6 +128,28 @@
       <p id="itemAddModalPrice" style="color: #ff7f32; font-weight: bold; font-size: 18px; margin-top: 0;">¥0</p>
       <p style="color: #666; font-size: 14px; margin: 4px 0;">最大10個まで注文できます</p>
       
+      <!-- 飲み方選択オプション（ドリンクの場合のみJSで表示を切り替える想定） -->
+      <div id="itemAddModalOptions" style="margin: 16px 0; text-align: left; background: #f9fafb; padding: 12px; border-radius: 8px; display: none;">
+        <p style="font-weight: bold; margin: 0 0 8px 0; font-size: 14px; text-align: center;">飲み方</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
+            <input type="radio" name="drinkOption" value="そのまま" checked> そのまま
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
+            <input type="radio" name="drinkOption" value="ロック"> ロック
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
+            <input type="radio" name="drinkOption" value="水割り"> 水割り
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
+            <input type="radio" name="drinkOption" value="お湯割り"> お湯割り
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
+            <input type="radio" name="drinkOption" value="ソーダ割り"> ソーダ割り
+          </label>
+        </div>
+      </div>
+
       <!-- 個数変更コントロール -->
       <div style="margin: 24px 0; display: flex; align-items: center; justify-content: center; gap: 20px;">
         <button id="itemAddModalMinus" class="secondary" style="width: 56px; height: 56px; font-size: 28px; border-radius: 50%;">－</button>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>座席管理 - みどり亭スタッフシステム</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      color: #333;
+    }
+    .app-header {
+      background: linear-gradient(135deg, #f08204 0%, #f08204 100%);
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .container {
+      max-width: 1000px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+    .page-title {
+      margin-top: 0;
+      margin-bottom: 24px;
+      font-size: 24px;
+      color: #1f2937;
+    }
+    .seat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .seat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border-top: 4px solid #d1d5db; /* デフォルト（空席） */
+    }
+    .seat-card.occupied {
+      border-top-color: #f08204; /* 利用中 */
+    }
+    .seat-card.empty {
+      border-top-color: #10b981; /* 空席 */
+    }
+    .seat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .seat-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #111827;
+    }
+    .seat-status {
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .status-occupied { background: #ffedd5; color: #b45309; }
+    .status-empty { background: #d1fae5; color: #047857; }
+
+    .seat-info {
+      margin-bottom: 16px;
+      font-size: 14px;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    .seat-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .action-row {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      flex: 1;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+      transition: opacity 0.2s;
+    }
+    .btn:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn-warning { background: #f59e0b; color: white; }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 style="margin:0; font-size:20px;">座席管理</h1>
+    <a href="STAFF_main.html" class="header-btn">ダッシュボードへ戻る</a>
+  </header>
+
+  <main class="container">
+    <h2 class="page-title">座席ステータス・QRコード発行</h2>
+    
+    <div class="seat-grid">
+      <!-- 席 C-01 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">C-01</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 C-02 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">C-02</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 C-03 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">C-03</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 C-04 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">C-04</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 C-05 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">C-05</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 C-06 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">C-06</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-01 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-01</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-02 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-02</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-03 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-03</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-04 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-04</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-05 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-05</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-06 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-06</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-07 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-07</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-08 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-08</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-09 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-09</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 席 T-10 (空席) -->
+      <div class="seat-card empty">
+        <div class="seat-header">
+          <div class="seat-name">T-10</div>
+          <div class="seat-status status-empty">空席</div>
+        </div>
+        <div class="seat-info">
+          <div>利用人数: -</div>
+          <div>経過時間: -</div>
+        </div>
+        <div class="seat-actions">
+          <div class="action-row">
+            <button class="btn btn-primary">QR発行</button>
+            <button class="btn btn-warning" disabled>座席移動</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</body>
+</html>
