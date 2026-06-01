@@ -1,337 +1,183 @@
 /**
  * API連携ユーティリティ
- * 
- * バックエンドAPIとの通信、またはデモ用ダミーデータ提供
- * testtest
- * @version 2.0.0
- * @author POS Development Team
+ * - フェッチラッパーを中心に各エンドポイントを短く明確に実装
+ * - モック切替を維持
+ * @version 2.0.1
  */
 
 const API_CONFIG = {
   BASE_URL: '/mos-main/MOS/Customer',
   TIMEOUT_MS: 5000,
-  USE_MOCK: false  // true: ダミーデータ使用、false: 実APIコール
+  USE_MOCK: false
 };
 
-/* ===== メニューAPI ===== */
-async function getMenuItems(storeId = '001') {
-  let items;
-  if (API_CONFIG.USE_MOCK) {
-    items = await new Promise(resolve => {
-      setTimeout(() => {
-        resolve(generateDummyMenuItems());
-      }, 500);
-    });
+// 共通フェッチ（タイムアウト + JSONパース）
+async function fetchWithTimeout(url, timeoutMs = API_CONFIG.TIMEOUT_MS, options = {}) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal, ...options });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+// 汎用リクエスト（JSON送受信）
+async function requestJson(method, path, body = null, opts = {}) {
+  const url = path.startsWith('http') ? path : `${API_CONFIG.BASE_URL}/${path.replace(/^\//, '')}`;
+  const options = { method, headers: {}, ...opts };
+  if (body != null) {
+    if (options.headers['Content-Type'] === 'application/x-www-form-urlencoded') {
+      options.body = new URLSearchParams(body);
     } else {
-    try {
-      // ここでローカルの PHP エンドポイントからメニューを取得する
-      const response = await fetchWithTimeout(
-        `${API_CONFIG.BASE_URL}/get_menu.php?storeId=${storeId}`,
-        API_CONFIG.TIMEOUT_MS
-      );
-      items = await response.json();
-    } catch (error) {
-      console.error('Menu API error:', error);
-      items = generateDummyMenuItems();
+      options.headers['Content-Type'] = 'application/json';
+      options.body = typeof body === 'string' ? body : JSON.stringify(body);
     }
   }
-  
-  // 飲み放題プランの場合は対象カテゴリを0円にする
-  const isNomihodai = localStorage.getItem('selectedPlan') === 'nomihodai';
-  if (isNomihodai) {
-    items = items.map(item => {
-      if (item.category === 'アルコール' || item.category === 'ソフトドリンク') {
-        return { ...item, price: 0 };
-      }
-      return item;
-    });
+  const res = await fetchWithTimeout(url, options.timeoutMs || API_CONFIG.TIMEOUT_MS, options);
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+/* ===== メニュー ===== */
+async function getMenuItems(storeId = '001') {
+  if (API_CONFIG.USE_MOCK) return generateDummyMenuItems();
+  try {
+    const data = await requestJson('GET', `get_menu.php?storeId=${encodeURIComponent(storeId)}`);
+    const items = Array.isArray(data) ? data : [];
+    const isNomihodai = localStorage.getItem('selectedPlan') === 'nomihodai';
+    if (!isNomihodai) return items;
+    return items.map(it => ({ ...it, price: ['アルコール', 'ソフトドリンク'].includes(it.category) ? 0 : it.price }));
+  } catch (err) {
+    console.error('getMenuItems failed', err);
+    return generateDummyMenuItems();
   }
-  
-  return items;
 }
 
 function generateDummyMenuItems() {
   return [
-    // 串もの
     { id: 'm01', name: 'ねぎま', category: '串もの', price: 280, image: '🍢', popular: true, soldOut: true },
     { id: 'm02', name: 'つくね', category: '串もの', price: 280, image: '🍢', popular: true },
-    { id: 'm03', name: 'ぼんじり', category: '串もの', price: 320, image: '🍢', popular: false },
-    
-    // 揚げ物
+    { id: 'm03', name: 'ぼんじり', category: '串もの', price: 320, image: '🍢' },
     { id: 'm04', name: '唐揚げ', category: '揚げ物', price: 590, image: '🍗', popular: true, soldOut: true },
-    { id: 'm05', name: 'チーズ唐揚げ', category: '揚げ物', price: 650, image: '🍗', popular: true },
-    { id: 'm06', name: 'ただの唐揚げ', category: '揚げ物', price: 520, image: '🍗', popular: false },
-    
-    // 冷菜
-    { id: 'm07', name: '枝豆', category: '冷菜', price: 390, image: '🥬', popular: false, soldOut: true },
-    { id: 'm08', name: 'ポテトサラダ', category: '冷菜', price: 420, image: '🥔', popular: false },
-    { id: 'm09', name: 'イカ塩辛', category: '冷菜', price: 480, image: '🦑', popular: false },
-    
-    // 焼き物
-    { id: 'm10', name: '牛タン塩焼き', category: '焼き物', price: 880, image: '🥩', popular: true },
-    { id: 'm11', name: '焼鳥盛合わせ', category: '焼き物', price: 720, image: '🔥', popular: false },
-    
-    // 0円メニュー
-    { id: 'm12', name: 'お絞り', category: '0円', price: 0, image: '🧻', popular: false },
-    { id: 'm13', name: '取り皿', category: '0円', price: 0, image: '🍽️', popular: false },
-
-    // アルコール
+    { id: 'm05', name: 'チーズ唐揚げ', category: '揚げ物', price: 650, image: '🍗' },
+    { id: 'm07', name: '枝豆', category: '冷菜', price: 390, image: '🥬' },
+    { id: 'm10', name: '牛タン塩焼き', category: '焼き物', price: 880, image: '🥩' },
+    { id: 'm12', name: 'お絞り', category: '0円', price: 0, image: '🧻' },
     { id: 'm14', name: 'プレミアム・モルツ', category: 'アルコール', price: 550, image: '🍺', popular: true },
-    { id: 'm15', name: 'ハイボール', category: 'アルコール', price: 450, image: '🥃', popular: true },
-    { id: 'm16', name: 'レモンサワー', category: 'アルコール', price: 450, image: '🍋', popular: true },
-    { id: 'm17', name: '梅酒', category: 'アルコール', price: 480, image: '🍶', popular: false },
-    { id: 'm18', name: '焼酎(麦)', category: 'アルコール', price: 450, image: '🍶', popular: false },
-    { id: 'm19', name: '日本酒', category: 'アルコール', price: 500, image: '🍶', popular: false },
-    
-    // ソフトドリンク
-    { id: 'm20', name: 'コーラ', category: 'ソフトドリンク', price: 300, image: '🥤', popular: false },
-    { id: 'm21', name: 'ジンジャーエール', category: 'ソフトドリンク', price: 300, image: '🥤', popular: false },
-    { id: 'm22', name: 'カルピス', category: 'ソフトドリンク', price: 300, image: '🥤', popular: false },
-    { id: 'm23', name: 'オレンジジュース', category: 'ソフトドリンク', price: 300, image: '🧃', popular: false },
-    { id: 'm24', name: 'リンゴジュース', category: 'ソフトドリンク', price: 300, image: '🧃', popular: false }
+    { id: 'm20', name: 'コーラ', category: 'ソフトドリンク', price: 300, image: '🥤' }
   ];
 }
 
-/* ===== ラストオーダー（LO）API ===== */
+/* ===== ラストオーダー（LO） ===== */
 async function getLastOrderTime(storeId = '001') {
   if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const now = new Date();
-        const closeHour = 24;  // 23:50 に LO（30分前）
-        const loTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 20);
-        const remainingMs = loTime - now;
-        const remainingMinutes = Math.max(0, Math.floor(remainingMs / 1000 / 60));
-        
-        resolve({
-          remainingMinutes: remainingMinutes,
-          loTime: loTime.toISOString(),
-          serverTime: now.toISOString(),
-          notify: remainingMinutes <= 15
-        });
-      }, 200);
-    });
+    const now = new Date();
+    const loTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 20);
+    const remainingMinutes = Math.max(0, Math.floor((loTime - now) / 60000));
+    return { remainingMinutes, loTime: loTime.toISOString(), serverTime: now.toISOString(), notify: remainingMinutes <= 15 };
   }
-  
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/lo?storeId=${storeId}`,
-      API_CONFIG.TIMEOUT_MS
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('LO API error:', error);
+    return await requestJson('GET', `lo?storeId=${encodeURIComponent(storeId)}`);
+  } catch (err) {
+    console.error('getLastOrderTime failed', err);
     return { remainingMinutes: 120, serverTime: new Date().toISOString() };
   }
 }
 
-/* ===== スタッフ呼び出しAPI ===== */
+/* ===== スタッフ呼び出し ===== */
 async function callStaff(seatId) {
   if (API_CONFIG.USE_MOCK) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (Math.random() > 0.1) {  // 90% 成功
-          resolve({ success: true, message: 'スタッフに通知しました', seatId });
-        } else {
-          reject(new Error('Staff call failed'));
-        }
-      }, 1000);
-    });
+    await new Promise(r => setTimeout(r, 700));
+    if (Math.random() < 0.1) throw new Error('Staff call failed (mock)');
+    return { success: true, message: 'スタッフに通知しました', seatId };
   }
-  
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/insert_staffcall.php`,
-      API_CONFIG.TIMEOUT_MS,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          seat_no: seatId,
-          datetime: new Date().toISOString(),
-          complete_flag: '0'
-        })
-      }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('Call staff API error:', error);
-    throw error;
+    return await requestJson('POST', 'insert_staffcall.php', { seat_no: seatId, datetime: new Date().toISOString(), complete_flag: 0 }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  } catch (err) {
+    console.error('callStaff failed', err);
+    throw err;
   }
 }
 
-/* ===== 注文送信API ===== */
+/* ===== 注文送信 ===== */
 async function submitOrder(seatId, cartItems) {
   if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const orderId = 'ORD-' + Date.now();
-        resolve({
-          orderId,
-          seatId,
-          items: cartItems,
-          status: 'confirmed',
-          timestamp: new Date().toISOString()
-        });
-      }, 500);
-    });
+    await new Promise(r => setTimeout(r, 400));
+    return { orderId: 'ORD-' + Date.now(), seatId, items: cartItems, status: 'confirmed', timestamp: new Date().toISOString() };
   }
-  
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/order`,
-      API_CONFIG.TIMEOUT_MS,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seatId, items: cartItems })
-      }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('Submit order API error:', error);
-    throw error;
+    // 既存のサーバー側エンドポイント（insert_order.php）に連携する想定
+    const payload = { seat_no: seatId, items_json: JSON.stringify(cartItems), amount: computeCartAmount(cartItems) };
+    return await requestJson('POST', 'insert_order.php', payload, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  } catch (err) {
+    console.error('submitOrder failed', err);
+    throw err;
   }
 }
 
-/* ===== 会計API ===== */
-async function initializePayment(seatId) {
-  if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          paymentId: 'PAY-' + Date.now(),
-          seatId,
-          status: 'preparing',
-          message: '会計を準備しています...'
-        });
-      }, 300);
-    });
-  }
-  
+function computeCartAmount(items) {
+  if (!items) return 0;
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/payment/start`,
-      API_CONFIG.TIMEOUT_MS,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seatId })
-      }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('Payment initialization error:', error);
-    throw error;
+    return Object.values(items).reduce((sum, it) => {
+      if (typeof it === 'number') return sum + it; // fallback
+      const price = Number(it.price || 0);
+      const qty = Number(it.qty || it.quantity || 1);
+      return sum + price * qty;
+    }, 0);
+  } catch (_) { return 0; }
+}
+
+/* ===== 会計 ===== */
+async function initializePayment(seatId) {
+  if (API_CONFIG.USE_MOCK) return { paymentId: 'PAY-' + Date.now(), seatId, status: 'preparing', message: '会計を準備しています...' };
+  try {
+    return await requestJson('POST', 'payment/start', { seatId });
+  } catch (err) {
+    console.error('initializePayment failed', err);
+    throw err;
   }
 }
 
 async function completePayment(paymentId, amount) {
-  if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          paymentId,
-          status: 'completed',
-          amount,
-          timestamp: new Date().toISOString()
-        });
-      }, 800);
-    });
-  }
-  
+  if (API_CONFIG.USE_MOCK) return { paymentId, status: 'completed', amount, timestamp: new Date().toISOString() };
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/payment/complete`,
-      API_CONFIG.TIMEOUT_MS,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId, amount })
-      }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('Payment completion error:', error);
-    throw error;
+    return await requestJson('POST', 'payment/complete', { paymentId, amount });
+  } catch (err) {
+    console.error('completePayment failed', err);
+    throw err;
   }
 }
 
-/* ===== QR認証API ===== */
+/* ===== QR検証 ===== */
 async function validateQRCode(qrData) {
-  // QRデータから座席IDを抽出（例: "SEAT:C-05"）
-  const match = qrData.match(/SEAT:([A-Z]-\d{2})/);
-  if (!match) {
-    throw new Error('Invalid QR code format');
-  }
-  
+  const match = String(qrData || '').match(/SEAT:([A-Z]-\d{2})/);
+  if (!match) throw new Error('Invalid QR code format');
   const seatId = match[1];
-  
-  if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          valid: true,
-          seatId,
-          storeName: 'みどり亭 ○○店',
-          timestamp: new Date().toISOString()
-        });
-      }, 300);
-    });
-  }
-  
+  if (API_CONFIG.USE_MOCK) return { valid: true, seatId, storeName: 'みどり亭 ○○店', timestamp: new Date().toISOString() };
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/qr/validate`,
-      API_CONFIG.TIMEOUT_MS,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qrData })
-      }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('QR validation error:', error);
-    throw error;
+    return await requestJson('POST', 'qr/validate', { qrData });
+  } catch (err) {
+    console.error('validateQRCode failed', err);
+    throw err;
   }
 }
 
-/* ===== ユーティリティ ===== */
-function fetchWithTimeout(url, timeoutMs, options = {}) {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
-    )
-  ]);
-}
-
-/**
- * 売切アイテムを取得
- */
+/* ===== 売切アイテム取得 ===== */
 async function getSoldOutItems() {
-  if (API_CONFIG.USE_MOCK) {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve([]);  // デモでは売切なし
-      }, 200);
-    });
-  }
-  
+  if (API_CONFIG.USE_MOCK) return [];
   try {
-    const response = await fetchWithTimeout(
-      `${API_CONFIG.BASE_URL}/get_sold_out.php`,
-      API_CONFIG.TIMEOUT_MS
-    );
-    return await response.json();
-  } catch (error) {
-    console.error('Sold out items API error:', error);
+    return await requestJson('GET', 'get_sold_out.php');
+  } catch (err) {
+    console.error('getSoldOutItems failed', err);
     return [];
   }
 }
 
-/* ===== グローバル公開 ===== */
+/* ===== エクスポート ===== */
 window.API = {
   getMenuItems,
   getLastOrderTime,
@@ -340,5 +186,8 @@ window.API = {
   initializePayment,
   completePayment,
   validateQRCode,
-  getSoldOutItems
+  getSoldOutItems,
+  // テスト用/内部ユーティリティを公開
+  _cfg: API_CONFIG,
+  _fetchWithTimeout: fetchWithTimeout
 };

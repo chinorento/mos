@@ -184,7 +184,7 @@
     </div>
 
     <footer class="app-footer" role="contentinfo">
-      <small>&copy; 2026 みどり亭 POS システム</small>
+      <small>&copy; 2026 みどり亭 MOS システム</small>
     </footer>
 
     <style>
@@ -241,7 +241,7 @@
       }
 
       async function saveStaffCallToDb(call) {
-        const endpoint = '/mos-main/MOS/Customer/insert_staffcall.php';
+        const endpoint = '/MOS/Customer/insert_staffcall.php';
         const datetime = new Date(call.createdAt);
         const formattedDatetime = Number.isNaN(datetime.getTime())
           ? new Date().toISOString().slice(0, 19).replace('T', ' ')

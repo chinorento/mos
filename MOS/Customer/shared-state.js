@@ -56,7 +56,7 @@ function initializeAppState() {
   // localStorage から座席IDを復元
   const savedSeatId = localStorage.getItem('seatId');
   if (savedSeatId) {
-    AppState.seatId = savedSeatId;
+    AppState.seatId = normalizeSeatId(savedSeatId) || savedSeatId;
     AppState.qrScanned = true;
   } else {
     // デフォルト座席を初期設定（デモ用）
@@ -85,7 +85,7 @@ function setSeatId(seatId) {
 
   AppState.seatId = normalized;
   AppState.qrScanned = true;
-  localStorage.setItem('seatId', normalized);
+  try { localStorage.setItem('seatId', normalized); } catch(e){ console.warn('localStorage setItem failed', e); }
 
   // 座席変更時はカート・注文を再ロード
   loadCartAndOrders();
@@ -111,25 +111,23 @@ function loadCartAndOrders() {
 
   // カート読み込み
   const cartKey = `cart_${seatId}`;
-  const savedCart = localStorage.getItem(cartKey);
-  AppState.cart = savedCart ? JSON.parse(savedCart) : {};
+  try { AppState.cart = JSON.parse(localStorage.getItem(cartKey) || '{}'); } catch(e){ AppState.cart = {}; }
 
   // 注文履歴読み込み
   const ordersKey = `orders_${seatId}`;
-  const savedOrders = localStorage.getItem(ordersKey);
-  AppState.orders = savedOrders ? JSON.parse(savedOrders) : [];
+  try { AppState.orders = JSON.parse(localStorage.getItem(ordersKey) || '[]'); } catch(e){ AppState.orders = []; }
 }
 
 function saveCart() {
   const seatId = AppState.seatId || 'C-05';
   const cartKey = `cart_${seatId}`;
-  localStorage.setItem(cartKey, JSON.stringify(AppState.cart));
+  try { localStorage.setItem(cartKey, JSON.stringify(AppState.cart)); } catch(e){ console.warn('saveCart failed', e); }
 }
 
 function saveOrders() {
   const seatId = AppState.seatId || 'C-05';
   const ordersKey = `orders_${seatId}`;
-  localStorage.setItem(ordersKey, JSON.stringify(AppState.orders));
+  try { localStorage.setItem(ordersKey, JSON.stringify(AppState.orders)); } catch(e){ console.warn('saveOrders failed', e); }
 }
 
 function addToCart(itemId, quantity = 1) {
@@ -157,7 +155,7 @@ function clearCart() {
 }
 
 function getCartTotal() {
-  const items = AppState.menuItems;
+  const items = AppState.menuItems || [];
   return Object.entries(AppState.cart).reduce((total, [itemId, quantity]) => {
     const item = items.find(m => m.id === itemId);
     return total + (item ? item.price * quantity : 0);

@@ -1,10 +1,10 @@
 <?php
 
-// データベース接続情報
-$host = 'localhost';
-$dbname = 'mos';
-$username = 'null';
-$password = 'null';
+  // データベース接続情報
+    $host = 'localhost';
+    $dbname = 'mos';
+    $username = 'Customer';
+    $password = 'Cust@999-00';
 
 header('Content-Type: application/json; charset=utf-8');
 

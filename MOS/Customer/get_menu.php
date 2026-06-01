@@ -1,16 +1,17 @@
 <?php
-header('Content-Type: application/json; charset=utf-8');
 
-$host = 'localhost';
-$dbname = 'mos';
-$username = 'null';
-$password = 'null';
+  // データベース接続情報
+    $host = 'localhost';
+    $dbname = 'mos';
+    $username = 'Customer';
+    $password = 'Cust@999-00';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $stmt = $pdo->query("SELECT * FROM `menu_list` WHERE 1 ORDER BY id ASC");
+    // 削除フラグが1の行を除外する（カラムが存在しない場合に備えて COALESCE を使用）
+    $stmt = $pdo->query("SELECT * FROM `menu_list` WHERE COALESCE(`削除フラグ`, 0) = 0 ORDER BY id ASC");
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $items = [];
@@ -23,7 +24,9 @@ try {
             'price' => isset($row['価格']) ? (int)$row['価格'] : (isset($row['price']) ? (int)$row['price'] : 0),
             'image' => isset($row['画像']) ? $row['画像'] : '',
             'popular' => false,
-            'soldOut' => isset($row['品切れフラグ']) ? (bool)$row['品切れフラグ'] : false
+            'soldOut' => isset($row['品切れフラグ']) ? (bool)$row['品切れフラグ'] : false,
+            // 削除フラグを追加（存在しない場合は0）
+            'deleted' => isset($row['削除フラグ']) ? ((int)$row['削除フラグ'] === 1 ? 1 : 0) : 0
         ];
     }
 

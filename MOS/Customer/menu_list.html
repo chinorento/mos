@@ -62,10 +62,6 @@
         <span role="status" aria-live="polite">
           カート：<strong id="cartCount" aria-label="カート内商品数">0</strong> 点
         </span>
-        <span class="order-status" role="status" aria-live="polite">
-          配膳済み: <span id="deliveredCount" aria-label="配膳済み商品数">0</span> 点　/　
-          未配膳: <span id="pendingCount" aria-label="未配膳商品数">0</span> 点
-        </span>
       </div>
       <div>
         <button id="miniCartToggle" class="secondary" type="button"
@@ -77,7 +73,6 @@
 
     <!-- 詳細表示（展開時） -->
     <div id="miniCartDetails" hidden aria-hidden="true">
-      <h3>カートの中身</h3>
       <ul id="cartItems" role="list" aria-label="カート内商品一覧">
       </ul>
       <div id="cartTotal" role="status" aria-live="polite">
@@ -118,27 +113,6 @@
       <p id="itemAddModalPrice" style="color: #ff7f32; font-weight: bold; font-size: 18px; margin-top: 0;">¥0</p>
       <p style="color: #666; font-size: 14px; margin: 4px 0;">最大10個まで注文できます</p>
       
-      <!-- 飲み方選択オプション（ドリンクの場合のみJSで表示を切り替える想定） -->
-      <div id="itemAddModalOptions" style="margin: 16px 0; text-align: left; background: #f9fafb; padding: 12px; border-radius: 8px; display: none;">
-        <p style="font-weight: bold; margin: 0 0 8px 0; font-size: 14px; text-align: center;">飲み方</p>
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
-          </label>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
-            <input type="radio" name="drinkOption" value="ロック"> ロック
-          </label>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
-            <input type="radio" name="drinkOption" value="水割り"> 水割り
-          </label>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
-            <input type="radio" name="drinkOption" value="お湯割り"> お湯割り
-          </label>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer;">
-            <input type="radio" name="drinkOption" value="ソーダ割り"> ソーダ割り
-          </label>
-        </div>
-      </div>
-
       <!-- 個数変更コントロール -->
       <div style="margin: 24px 0; display: flex; align-items: center; justify-content: center; gap: 20px;">
         <button id="itemAddModalMinus" class="secondary" style="width: 56px; height: 56px; font-size: 28px; border-radius: 50%;">－</button>
@@ -152,46 +126,5 @@
       </div>
     </div>
   </div>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // ===== お酒の飲み方オプションの表示・選択制御 =====
-      const modalNameEl = document.getElementById('itemAddModalName');
-      const optionsEl = document.getElementById('itemAddModalOptions');
-      const confirmItemAddBtn = document.getElementById('confirmItemAdd');
-
-      if (modalNameEl && optionsEl) {
-        // 商品名の変更を監視し、対象のお酒なら飲み方オプションを表示
-        const observer = new MutationObserver(() => {
-          const productName = modalNameEl.textContent || '';
-          // 飲み方を選択可能にするキーワード
-          const drinkKeywords = ['ハイボール', 'サワー', '梅酒', '焼酎', '日本酒'];
-          
-          if (drinkKeywords.some(keyword => productName.includes(keyword))) {
-            optionsEl.style.display = 'block';
-            // ラジオボタンの選択状態をデフォルトの「そのまま」にリセット
-            const defaultRadio = optionsEl.querySelector('input[value="そのまま"]');
-            if (defaultRadio) defaultRadio.checked = true;
-          } else {
-            optionsEl.style.display = 'none';
-          }
-        });
-        
-        observer.observe(modalNameEl, { childList: true, characterData: true, subtree: true });
-      }
-
-      // カートに入れる処理の直前で、選択された飲み方を商品名に付与
-      if (confirmItemAddBtn && modalNameEl && optionsEl) {
-        confirmItemAddBtn.addEventListener('click', () => {
-          if (optionsEl.style.display === 'block') {
-            const selectedOption = document.querySelector('input[name="drinkOption"]:checked');
-            if (selectedOption && selectedOption.value !== 'そのまま') {
-              modalNameEl.textContent = `${modalNameEl.textContent}（${selectedOption.value}）`;
-            }
-          }
-        }, true); // キャプチャフェーズで登録して、既存のカート追加処理より先に実行させる
-      }
-    });
-  </script>
 </body>
 </html>

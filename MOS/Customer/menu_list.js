@@ -1,13 +1,12 @@
 /**
- * メニュー一覧システム
+ * メニュー一覧
  * 
  * 機能:
  * - メニュー表示・検索・フィルタリング
- * - カート管理システム
- * - 注文管理・配膳状態追跡
+ * - カート管理・注文機能
  * 
- * @version 2.0.0  
- * @author POS Development Team
+ * @version 1.0.0
+ * @author 
  */
 
 const isStaffPage = window.location.pathname.toLowerCase().includes('/staff/');
@@ -18,7 +17,8 @@ const MENU_CONFIG = {
   DUMMY_MENU_COUNT: 12,
   QUANTITY_MAX: 10,  // 1商品あたりの最大注文数量
   API: {
-    MENU_ENDPOINT: '/api/menu',
+    // PHP から直接取得するエンドポイントに変更
+    MENU_ENDPOINT: 'get_menu.php',
     TIMEOUT_MS: 5000
   },
   ORDER: {
@@ -47,54 +47,104 @@ const menuState = {
 };
 
 /* ===== ユーティリティ関数 ===== */
+/**
+ * 共通ユーティリティ群
+ * - safeParseJSON(jsonString, fallback): 安全に JSON をパースし、失敗時は fallback を返す
+ * - fetchJson(url): fetch の簡易ラッパー。レスポンステキストを読み JSON に変換して返す（例外は投げる）
+ * - isSoldOut(value): 多様な売切表現（'1','true',1,true 等）を正規化して判定する
+ * - normalizeIdList(list): 配列・JSON文字列・カンマ区切りのIDリストを統一して配列で返す
+ */
 const utils = {
+  /** 正規化された座席IDを返す（例: 'C-01'） */
   normalizeSeatId(input) {
     if (!input) return null;
-    const normalized = String(input).trim().toUpperCase();
-    return normalized;
+    const s = String(input).trim().toUpperCase();
+    const m = s.match(/^([A-Z])[-\s]?(\d{1,2})$/);
+    return m ? `${m[1]}-${String(parseInt(m[2],10)).padStart(2,'0')}` : null;
   },
 
+  /** ストレージ用キーを生成する */
   generateStorageKey(prefix, seatId) {
     if (!seatId) return null;
     return `${prefix}${seatId}`;
   },
 
+  /** 安全にJSONをパースする。失敗時は fallback を返す */
   safeParseJSON(jsonString, fallback = null) {
-    try {
-      return JSON.parse(jsonString);
-    } catch (error) {
-      console.error("JSON parsing error:", error);
-      return fallback;
-    }
+    try { return JSON.parse(jsonString); } catch { return fallback; }
   },
 
+  /** 要素作成の短縮 */
   createElement(tag, className = '', content = '') {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
-    if (content) element.textContent = content;
-    return element;
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (content) el.textContent = content;
+    return el;
   },
 
-  // XSS対策のためのエスケープ関数を追加
+  /** XSS対策のためのテキストエスケープ */
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.appendChild(document.createTextNode(text));
-    return div.innerHTML;
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(text));
+    return d.innerHTML;
   },
 
-  // ローディング状態管理
+  /** ローディング表示をトグル */
   setLoadingState(isLoading) {
     menuState.isLoading = isLoading;
     const loader = document.getElementById('loader');
     if (loader) loader.style.display = isLoading ? 'block' : 'none';
   },
 
-  // エラー表示
+  /** 簡易エラーメッセージ表示 */
   showError(message, container = null) {
-    const errorContainer = container || document.body;
-    const errorElement = this.createElement('div', 'error-message', message);
-    errorContainer.appendChild(errorElement);
-    setTimeout(() => errorElement.remove(), 5000);
+    const target = container || document.body;
+    const el = this.createElement('div', 'error-message', message);
+    target.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  },
+
+  /**
+   * 売切判定
+   * - true/false, 数値 '1'/'0', 文字列 'true'/'false' を扱う
+   */
+  isSoldOut(value) {
+    if (value === true) return true;
+    if (value === false || value == null) return false;
+    const v = String(value).trim().toLowerCase();
+    return v === '1' || v === 'true' || v === 'yes';
+  },
+
+  /**
+   * IDリストを文字列配列に正規化
+   * - 配列 / JSON文字列 / カンマ区切り をサポート
+   */
+  normalizeIdList(list) {
+    if (!list) return [];
+    if (Array.isArray(list)) return list.map(String);
+    if (typeof list === 'string') {
+      try {
+        const parsed = JSON.parse(list);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch (_) {
+        return list.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  },
+
+  /**
+   * fetch -> JSON の簡易ラッパー
+   * - レスポンスのテキストを一度読み、JSON parse を試みる
+   */
+  async fetchJson(url) {
+    const resp = await fetch(url, { cache: 'no-cache' });
+    const text = await resp.text();
+    console.debug('[DEBUG] fetchJson', url, 'status:', resp.status);
+    try { return text ? JSON.parse(text) : []; } catch (e) {
+      console.warn('[DEBUG] fetchJson parse failed for', url, e);
+      throw new Error(`Invalid JSON from ${url}`);
+    }
   }
 };
 
@@ -144,54 +194,62 @@ const dataManager = {
   }
 };
 
-/* ===== メニュー管理 ===== */
+/**
+ * menuManager
+ * - get_menu.php を唯一のメニューソースとして取得し、正規化してstateに反映する
+ * - loadMenu(): メニュー取得 → 正規化 → menuState/AppState へ反映 → UI更新を行う
+ * - filterItems(keyword, category, sortBy): 表示用のフィルタ/ソート処理を提供する
+ */
 const menuManager = {
+  /**
+   * loadMenu
+   * - get_menu.php からメニューを取得して正規化し、menuState/AppState に反映する
+   */
   async loadMenu() {
     menuState.isLoading = true;
     utils.setLoadingState(true);
-    
+
     try {
-      // 新しいAPI経由でメニューを取得
-      let menuItems = await API.getMenuItems();
-      if (!menuItems || !Array.isArray(menuItems)) {
-        throw new Error('Invalid menu data returned');
-      }
+      const rawItems = await utils.fetchJson(MENU_CONFIG.API.MENU_ENDPOINT);
+      if (!Array.isArray(rawItems)) throw new Error('menu endpoint did not return an array');
 
-      // 管理画面で設定した価格や品切れ情報を反映
-      const savedMenu = localStorage.getItem('customMenuItems');
-      if (savedMenu) {
-        const parsedMenu = utils.safeParseJSON(savedMenu, []);
-        if (Array.isArray(parsedMenu)) {
-          menuItems = menuItems.map(item => {
-            const customItem = parsedMenu.find(c => c.id === item.id);
-            return customItem ? { ...item, ...customItem } : item;
-          });
-        }
-      }
+      const normalizeRow = raw => {
+        const id = String(raw['id'] ?? raw['ID'] ?? raw['menu_id'] ?? raw.id ?? '');
+        const name = raw['商品名'] ?? raw.name ?? raw.product_name ?? '';
+        const price = Number(raw['価格'] ?? raw.price ?? raw.Price ?? 0) || 0;
+        const soldOut = utils.isSoldOut(raw['品切れフラグ'] ?? raw.soldOut ?? raw.sold_out ?? raw['sold'] ?? raw.売切 ?? 0);
+        const category = raw['カテゴリ'] ?? raw.category ?? '';
+        const image = raw['画像'] ?? raw.image ?? '';
+        return { ...raw, id, name, price, soldOut, category, image };
+      };
 
+      let menuItems = rawItems.map(normalizeRow);
+
+      // DB（get_menu.php）の行に含まれる soldOut/品切れフラグのみを採用
+      const soldSet = new Set(menuItems.filter(i => i.soldOut).map(i => String(i.id)));
+      menuItems = menuItems.map(item => ({ ...item, soldOut: soldSet.has(String(item.id)) }));
+
+      // state に反映
       menuState.items = menuItems;
-      
-      // AppState にもメニューアイテムを保存
-      AppState.menuItems = menuState.items;
-      console.log('Menu loaded:', menuState.items.length, 'items');
+      AppState.menuItems = menuItems;
+      AppState.soldOutItems = Array.from(soldSet);
+
+      console.log('Menu loaded:', menuState.items.length, 'items; soldOut:', AppState.soldOutItems.length);
     } catch (error) {
       console.error('Menu API error:', error);
-      utils.showError('メニュー読み込みエラー: ' + error.message);
+      utils.showError('メニュー読み込みエラー: ' + (error.message || error));
       menuState.items = [];
     } finally {
       menuState.isLoading = false;
       utils.setLoadingState(false);
     }
 
-    // UI更新順序：1) メニュー, 2) カテゴリ, 3) ソートボタン
     try {
       uiManager.renderMenu();
       uiManager.populateCategories();
-      console.log('Menu UI rendered');
     } catch (e) {
       console.error('UI render error:', e);
     }
-    // ソートボタンはbindEventHandlers後に生成（イベントリスナー自体の初期化のため）
   },
 
   async fetchMenuFromAPI() {
@@ -228,7 +286,11 @@ const menuManager = {
   }
 };
 
-/* ===== カート管理 ===== */
+/**
+ * cartManager
+ * - カート操作（追加／削除／増減）、合計計算、保存、UI同期を担当する
+ * - addItemWithQuantity(itemId, quantity): 指定数量を確実に追加するユーティリティ
+ */
 const cartManager = {
   addItem(itemId) {
     this.increaseQuantity(itemId); // increaseQuantityに統合
@@ -315,7 +377,12 @@ const cartManager = {
   }
 };
 
-/* ===== 注文管理 ===== */
+/**
+ * orderManager
+ * - 注文確定処理と配達状態の管理を行う
+ * - confirmOrder(): カート内容を整形してサーバへ送信し、結果に応じてローカル状態を更新する
+ * - markAsDelivered(itemId): 指定の注文を配達済みにマークする
+ */
 const orderManager = {
   confirmOrder() {
     if (Object.keys(AppState.cart).length === 0) {
@@ -343,30 +410,27 @@ const orderManager = {
       return;
     }
 
-    const orderItems = Object.entries(AppState.cart).map(([itemId, quantity]) => {
-      const item = menuState.items.find(i => i.id === itemId) || AppState.menuItems?.find(i => i.id === itemId);
-      // 1行あたり: 商品名×数量@単価  の形式で送信（サーバー側で qty と price を解析して金額を算出）
-      const unitPrice = item?.price || 0;
-      return `${item?.name || itemId}×${quantity}@${unitPrice}`;
+    // 構造化されたアイテム配列を作成（サーバ側で信頼して使える形式）
+    const orderItemsDetailed = Object.entries(AppState.cart).map(([itemId, quantity]) => {
+      const item = menuState.items.find(i => i.id === itemId) || AppState.menuItems?.find(i => i.id === itemId) || { name: itemId, price: 0 };
+      const unitPrice = Number(item.price || 0);
+      return { id: String(itemId), name: item.name || String(itemId), qty: Number(quantity), unitPrice };
     });
 
-    // 結果を確認
-    console.log(orderItems);
+    // 後方互換のため従来のテキスト形式も作る
+    const orderItems = orderItemsDetailed.map(it => `${it.name}×${it.qty}:¥${it.unitPrice}`);
+
+    // 改行区切りテキスト（既存互換）
+    let orderContent = orderItems.join('\n');
+
+    console.log('orderContent (payload):', orderContent);
 
     const now = new Date();
     const pad2 = n => String(n).padStart(2, '0');
     const formattedDatetime = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
 
-    // 配列ではなく単一文字列で送信（各行で改行: 例: "ねぎま×2\n枝豆×1"）
-    let orderContent = orderItems.join('\n');
-
-    // ガード: もし他コードで配列が残っている場合は強制的に文字列化する
-    // if (Array.isArray(orderContent)) {
-    //   orderContent = orderContent.join('、');
-    // } else if (typeof orderContent !== 'string') {
-    //   orderContent = String(orderContent || '');
-    // }
-    console.log('orderContent (payload):', orderContent);
+    // seat id の安全なデフォルト（DBの短いカラムに入ると切られる場合があるため短めの標準値にする）
+    const seatIdToSend = AppState.seatId || menuState.currentSeat || 'C-01';
 
     fetch(MENU_CONFIG.ORDER.ENDPOINT, {
       method: 'POST',
@@ -375,15 +439,17 @@ const orderManager = {
       },
       body: new URLSearchParams({
         id: order.id,
-        seat_no: AppState.seatId || 'unknown',
+        seat_no: seatIdToSend,
         order_content: orderContent,
+        // 新しい構造化フィールドを追加（サーバ側で優先的に利用）
+        items_json: JSON.stringify(orderItemsDetailed),
         amount: String(order.total),
         served_flag: '0',
         deleted_flag: '0',
         datetime: formattedDatetime,
 
         // 既存互換キー
-        name: AppState.seatId || 'unknown',
+        name: seatIdToSend,
         data: orderContent,
       }),
     })
@@ -405,11 +471,12 @@ const orderManager = {
       })
       .then(() => {
         // AppState に注文を追加
+        AppState.orders = Array.isArray(AppState.orders) ? AppState.orders : [];
         AppState.orders.push(order);
-        AppState.saveOrders();
+        if (typeof AppState.saveOrders === 'function') AppState.saveOrders();
 
         // カートをクリア
-        AppState.clearCart();
+        if (typeof AppState.clearCart === 'function') AppState.clearCart();
 
         // UIの更新
         uiManager.renderCart();
@@ -454,7 +521,12 @@ const orderManager = {
   }
 };
 
-/* ===== UI管理 ===== */
+/**
+ * uiManager
+ * - DOMのレンダリング・イベントバインドを担当
+ * - renderMenu/renderMenuItem: メニュー一覧と個別カードの描画
+ * - updateItemActionUI/updateMenuQuantities: カート状態や売切状態に応じてボタン等を更新する
+ */
 const uiManager = {
   renderMenu() {
     const container = document.getElementById('menuContainer');
@@ -1010,21 +1082,22 @@ const uiManager = {
   }
 };
 
-/* ===== 初期化 ===== */
+/**
+ * 初期化ハンドラ
+ * - DOMContentLoaded 時にメニューのロード、AppState の同期、UIハンドラのバインドを行う
+ */
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     // メニューロード＆初期化
     await menuManager.loadMenu();
-    
-    // 売切アイテムを AppState に設定
-    const apiSoldOut = await API.getSoldOutItems();
-    const localSoldOut = utils.safeParseJSON(localStorage.getItem('soldOutItems'), null);
-    AppState.soldOutItems = localSoldOut || apiSoldOut || [];
-    
+
+    // get_menu.php の売切フラグを優先して AppState に反映
+    AppState.soldOutItems = Array.from(new Set(menuState.items.filter(i => i.soldOut).map(i => String(i.id))));
+
     uiManager.bindEventHandlers();
     uiManager.renderCart();
     uiManager.renderOrderStatus();
-    
+
     // 外部依存の初期化
     if (typeof startClock === 'function') {
       startClock();

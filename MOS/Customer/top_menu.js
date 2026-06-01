@@ -1,14 +1,15 @@
 /**
- * トップメニューシステム
+ * トップメニュー
  * 
  * 機能:
  * - 店舗情報・時刻表示
- * - 座席管理システム  
- * - スタッフ呼び出し機能
+ * - メニュー一覧
+ * - 注文履歴表示
+ * - スタッフ呼び出し
  * - ラストオーダー時間管理
  * 
- * @version 2.0.0
- * @author POS Development Team
+ * @version 1.0.0
+ * @author
  */
 
 /* ===== 設定定数 ===== */
@@ -428,7 +429,7 @@ function saveStaffCall(call) {
 }
 
 async function saveStaffCallToDb(call) {
-  const endpoint = '/mos-main/MOS/Customer/insert_staffcall.php';
+  const endpoint = '/MOS/Customer/insert_staffcall.php';
   const payload = new URLSearchParams({
       id: call.id,
       seat_no: call.seatId,
