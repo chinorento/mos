@@ -1080,6 +1080,123 @@ const uiManager = {
       timeout = setTimeout(later, wait);
     };
   }
+  ,
+
+  promptStaffSeatSelection() {
+    const existingModal = document.getElementById('staffSeatModal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'staffSeatModal';
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      z-index: 10000;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: #fff; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    `;
+
+    const title = document.createElement('h3');
+    title.textContent = '席番号を選択してください';
+    title.style.margin = '0 0 15px 0';
+
+    const select = document.createElement('select');
+    select.style.cssText = 'width: 100%; padding: 10px; margin-bottom: 20px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px;';
+    
+    const seatTypes = [
+      { prefix: 'C', count: 10, label: 'カウンター席' },
+      { prefix: 'A', count: 5, label: 'テーブル席' },
+      { prefix: 'B', count: 15, label: 'テーブル席' }
+    ];
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '選択してください';
+    defaultOption.disabled = true;
+    defaultOption.selected = !AppState.seatId;
+    select.appendChild(defaultOption);
+
+    seatTypes.forEach(type => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = type.label;
+      for (let i = 1; i <= type.count; i++) {
+        const val = `${type.prefix}-${String(i).padStart(2, '0')}`;
+        const option = document.createElement('option');
+        option.value = val;
+        option.textContent = `${type.label}：${val}`;
+        if (AppState.seatId === val) option.selected = true;
+        optgroup.appendChild(option);
+      }
+      select.appendChild(optgroup);
+    });
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px;';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'キャンセル';
+    cancelBtn.style.cssText = 'padding: 10px 15px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer;';
+    
+    const okBtn = document.createElement('button');
+    okBtn.textContent = '決定';
+    okBtn.style.cssText = 'padding: 10px 15px; border: none; background: #ff7f32; color: #fff; border-radius: 4px; cursor: pointer; font-weight: bold;';
+
+    btnContainer.appendChild(cancelBtn);
+    btnContainer.appendChild(okBtn);
+
+    content.appendChild(title);
+    content.appendChild(select);
+    content.appendChild(btnContainer);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    const handleSelect = (seatId) => {
+      if (seatId) {
+        const normalized = utils.normalizeSeatId(seatId);
+        if (normalized) {
+          if (typeof AppState.setSeatId === 'function') {
+            AppState.setSeatId(normalized);
+          } else {
+            localStorage.setItem(MENU_CONFIG.STORAGE.SEAT_KEY, normalized);
+            AppState.seatId = normalized;
+          }
+          menuState.currentSeat = normalized;
+          
+          dataManager.loadCart();
+          dataManager.loadOrders();
+          this.renderCart();
+          this.renderOrderStatus();
+          
+          if (typeof showToast === 'function') {
+            showToast(`座席を ${normalized} に設定しました`);
+          }
+          modal.remove();
+        }
+      } else {
+        if (!AppState.seatId) {
+          alert("注文を行うには席番号の設定が必要です。");
+        } else {
+          modal.remove();
+        }
+      }
+    };
+
+    okBtn.addEventListener('click', () => {
+      handleSelect(select.value);
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      if (!AppState.seatId) {
+        alert("注文を行うには席番号の設定が必要です。");
+      } else {
+        modal.remove();
+      }
+    });
+  }
 };
 
 /**
@@ -1095,8 +1212,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     AppState.soldOutItems = Array.from(new Set(menuState.items.filter(i => i.soldOut).map(i => String(i.id))));
 
     uiManager.bindEventHandlers();
-    uiManager.renderCart();
-    uiManager.renderOrderStatus();
+    
+    if (isStaffPage) {
+      uiManager.promptStaffSeatSelection();
+    } else {
+      uiManager.renderCart();
+      uiManager.renderOrderStatus();
+    }
 
     // 外部依存の初期化
     if (typeof startClock === 'function') {
