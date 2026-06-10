@@ -219,7 +219,7 @@ const menuManager = {
         const price = Number(raw['価格'] ?? raw.price ?? raw.Price ?? 0) || 0;
         const soldOut = utils.isSoldOut(raw['品切れフラグ'] ?? raw.soldOut ?? raw.sold_out ?? raw['sold'] ?? raw.売切 ?? 0);
         const category = raw['カテゴリ'] ?? raw.category ?? '';
-        const image = raw['syasin'] ?? raw['写真'] ?? raw['画像'] ?? raw.image ?? '';
+        const image = raw['画像'] ?? raw.image ?? '';
         return { ...raw, id, name, price, soldOut, category, image };
       };
 
@@ -567,17 +567,8 @@ const uiManager = {
     card.className = 'menuItem' + (isSoldOut ? ' soldOut' : '');
     card.dataset.itemId = item.id; // ★追加: 更新用にIDを保持
     
-    let imgHtml = '';
-    if (item.image) {
-      // 画像の拡張子やURLが含まれる場合は img タグを使用し、それ以外（絵文字など）はそのまま表示
-      if (item.image.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) || item.image.startsWith('http') || item.image.startsWith('data:image')) {
-        imgHtml = `<div class="menu-item-image" style="width: 100%; height: 120px; border-radius: 8px; overflow: hidden; margin-bottom: 8px; background-color: #f9f9f9;">
-                     <img src="${utils.escapeHtml(item.image)}" alt="${utils.escapeHtml(item.name)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">
-                   </div>`;
-      } else {
-        imgHtml = `<div style="font-size:32px;text-align:center;margin-bottom: 8px;">${item.image}</div>`;
-      }
-    }
+    const imgHtml = item.image ? 
+      `<div style="font-size:32px;text-align:center">${item.image}</div>` : '';
     
     const priceDisplay = item.price === 0 ? '¥0（無料）' : `¥${item.price}`;
     const isOrderDisabled = !AppState.canOrder || isSoldOut;
